@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AENO V3 · 量子星球文明模擬</title>
+<meta name="theme-color" content="#0b1020" />
+<meta name="description" content="AENO 量子星球文明模擬 — 3D 動漫星際探索、語言學習、DNA 進化、20 星球。" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="stylesheet" href="./style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loader-orb"></div>
+  <p>AENO 量子核心啟動中…</p>
+</div>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">AENO<span>V3</span></div>
+    <h1>量子星球文明模擬</h1>
+    <p class="login-sub">探索 20 個語言星球 · 飼養 AI 動物助手 · 挖 AENO 幣</p>
+    <input id="playerName" type="text" maxlength="16" placeholder="輸入你的探險家代號" autocomplete="off" />
+    <button id="loginBtn">進入宇宙</button>
+    <p class="login-hint">進度只儲存在你部裝置（localStorage）</p>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+
+  <header id="topBar">
+    <div class="brand">AENO<span>V3</span></div>
+    <div class="stats">
+      <div class="stat" title="AENO 幣"><i class="ico-aeno">◈</i><span id="statAeno">0</span></div>
+      <div class="stat" title="文明等級"><i class="ico-civ">✦</i><span id="statCiv">Lv.1</span></div>
+      <div class="stat" title="已解鎖星球"><i class="ico-planet">🪐</i><span id="statPlanets">1/20</span></div>
+    </div>
+    <button id="btnMenu" class="icon-btn" aria-label="選單">☰</button>
+  </header>
+
+  <aside id="planetBar">
+    <button class="planet-nav" id="planetPrev" aria-label="上一個星球">‹</button>
+    <div id="planetList"></div>
+    <button class="planet-nav" id="planetNext" aria-label="下一個星球">›</button>
+  </aside>
+
+  <section id="assistantPanel">
+    <div class="assistant-head">
+      <span id="assistantName">Lupus</span>
+      <span id="assistantSpecies" class="tag">wolf</span>
+    </div>
+    <p id="assistantDialog">你好呀～我係 Lupus 🐺</p>
+    <div class="assistant-actions">
+      <button id="btnTalk">傾偈</button>
+      <button id="btnFeed">餵食</button>
+      <button id="btnScan">掃描星球</button>
+    </div>
+  </section>
+
+  <section id="actionBar">
+    <button class="action" data-action="build"><span>🏗️</span>建造</button>
+    <button class="action" data-action="robot"><span>🤖</span>派機器人</button>
+    <button class="action" data-action="study"><span>📖</span>學習語言</button>
+    <button class="action" data-action="mutate"><span>🧬</span>DNA 變異</button>
+  </section>
+
+  <div id="toast"></div>
+
+  <div id="menuPanel" class="hidden">
+    <h2>系統</h2>
+    <button id="btnSave">儲存進度</button>
+    <button id="btnReset">重置存檔</button>
+    <button id="btnClose">關閉</button>
+  </div>
+
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
