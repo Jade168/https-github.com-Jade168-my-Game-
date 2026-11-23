@@ -78,7 +78,9 @@ let avatar = null;         // 被操控移動嘅 Object3D（優先玩家公仔�
 let clock = new THREE.Clock();
 
 const ISLAND_R = 23;       // 可行走半徑（浮島頂半徑 26，留邊）
-const WALK_SPEED = 3.4, RUN_SPEED = 6.8;
+// 行走 2.6 m/s：舊 3.4 m/s 係競步速度，步頻要 4.2 步/秒先跟得上地面，
+// 睇落急促；2.6 m/s 配速度對齊步頻約 3.2 步/秒，步態自然啲。
+const WALK_SPEED = 2.6, RUN_SPEED = 6.8;
 
 function disposeTree(obj) {
   obj.traverse(o => {

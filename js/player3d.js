@@ -41,6 +41,17 @@ async function createVrmPlayer() {
   model.traverse(o => {
     if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
   });
+
+  // 頭髮/衫擺物理放軟：pixiv 樣本預設 stiffness 偏硬，行走時頭髮幾乎唔郁。
+  // 降 stiffness 令髮尾滯後擺動更明顯、降 dragForce 減少阻尼；改唔到就靜默沿用預設。
+  try {
+    const mgr = vrm.springBoneManager;
+    if (mgr && mgr.joints) mgr.joints.forEach(j => {
+      if (!j.settings) return;
+      j.settings.stiffness *= 0.5;
+      j.settings.dragForce *= 0.6;
+    });
+  } catch (e) { console.warn("SpringBone 放軟失敗，沿用預設：", e); }
   normalizeHeight(model, TARGET_HEIGHT);
 
   const root = new THREE.Group();
@@ -99,9 +110,17 @@ async function createVrmPlayer() {
     update(dt) {
       clock += dt;
       blend += (blendTarget - blend) * Math.min(1, dt * 7);
-      const runFactor = speedNow > 0.72 ? 1.35 : 1;
-      phase += dt * (7.2 * runFactor) * blend;
-      const amp = (0.52 + 0.18 * (runFactor - 1)) * blend;
+      // 步頻對齊實際移動速度，唔再「平移滑行」：
+      // 舊版 phase 固定 7.2 rad/s，但行走 3.4 m/s 下每步要行 1.48 m，
+      // 遠超腿擺 0.52 rad 帶出嘅約 0.8 m 步幅，腳掌相對地面向後滑。
+      // 而家步幅 = 2 × 腿長（約 0.78 m）× sin（擺幅），步頻 = π × 速度 / 步幅；
+      // 跑步有空中騰空期，步頻封頂 15.5 rad/s。
+      const RUN_SPEED_MS = 6.8; // 與 main.js RUN_SPEED 對齊
+      const ampBase = speedNow > 0.72 ? 0.72 : 0.55;
+      const amp = ampBase * blend;
+      const strideLen = Math.max(0.3, 2 * 0.78 * Math.sin(ampBase));
+      const phaseRate = Math.min(15.5, Math.PI * (speedNow * RUN_SPEED_MS) / strideLen);
+      phase += dt * phaseRate * blend;
       const s = Math.sin(phase), c = Math.cos(phase);
 
       // 腿：前後擺（向前 = -X）；膝：屈曲為 +X；腳掌補償
@@ -121,7 +140,7 @@ async function createVrmPlayer() {
       pose(B.chest, breathe - blend * 0.06, s * 0.045 * blend, s * 0.02 * blend);
       pose(B.spine, breathe * 0.5 - blend * 0.03, 0, 0);
       pose(B.head, 0, Math.sin(clock * 0.43) * 0.07 * (1 - blend), Math.sin(clock * 0.31) * 0.02);
-      B.hips.position.y = hipsRestY - Math.abs(c) * 0.045 * blend;
+      B.hips.position.y = hipsRestY - Math.abs(c) * 0.05 * blend;
 
       // 眨眼
       if (blinkT < 0 && clock >= nextBlink) blinkT = 0;
