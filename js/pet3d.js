@@ -7,6 +7,21 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+
+// 同一模型只下載＋解析一次（每次換星球/重入都會再叫 placePet，舊版每次重新 fetch，
+// 令程式動物頂住嘅時間拉長，間中睇落似「真模型時得時唔得」）；
+// 之後每次用 SkeletonUtils 複製（骨骼綁定正確），材質每隻實例 clone 一份，
+// 免得狼嘅灰藍色 tint 經共享材質漏去狐狸嗰邊。載入失敗會清快取，下次再試。
+const _gltfCache = new Map();
+function loadPetGltf(url) {
+  let p = _gltfCache.get(url);
+  if (!p) {
+    p = new GLTFLoader().loadAsync(url).catch(e => { _gltfCache.delete(url); throw e; });
+    _gltfCache.set(url, p);
+  }
+  return p;
+}
 
 const MODELS = {
   wolf: { url: "./assets/models/fox.glb", height: 1.02, tint: 0x8fa3c4 },
@@ -19,9 +34,14 @@ export async function createPetModel(assistant) {
   const spec = MODELS[assistant.species];
   if (!spec) return null;
 
-  const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync(spec.url);
-  const model = gltf.scene;
+  const gltf = await loadPetGltf(spec.url);
+  const model = cloneSkinned(gltf.scene);
+  // 每隻實例用自己嘅材質（clone 預設共享材質，狼 tint 會漏去狐狸）
+  model.traverse(o => {
+    if (o.isMesh && o.material) {
+      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+    }
+  });
 
   // 正規化身高 + 貼地（Fox 原模型面向 +Z，已由骨骼世界座標驗證，同主角公仔一致）
   const box = new THREE.Box3().setFromObject(model);
