@@ -1,11 +1,11 @@
 // sw.js — AENO V3 離線快取
-const CACHE = "aeno-v3-3";
+const CACHE = "aeno-v3-4";
 const ASSETS = [
   "./", "./index.html", "./style.css",
   "./manifest.json", "./planets.json",
   "./js/main.js", "./js/data.js", "./js/state.js",
   "./js/ui.js", "./js/game.js", "./js/world3d.js", "./js/characters3d.js",
-  "./js/player3d.js", "./assets/models/player.glb"
+  "./js/player3d.js", "./assets/models/player.glb", "./assets/models/player.vrm"
 ];
 
 self.addEventListener("install", e => {
