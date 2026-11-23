@@ -4,6 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildWorld, rebuildIsland } from "./world3d.js";
 import { createCharacter, updateCharacter } from "./characters3d.js";
 import { createPlayer } from "./player3d.js";
+import { createPetModel } from "./pet3d.js";
 import { assistantFor } from "./data.js";
 import { loadState, saveState, state, currentPlanet } from "./state.js";
 import { initUI, showGame, hideLoading, refreshStats, refreshAssistant, renderPlanets } from "./ui.js";
@@ -69,6 +70,9 @@ scene.add(rim);
 let world = null;
 let pet = null;            // 動物助手（寵物跟班）
 let petKind = "quadruped";
+let petCtl = null;         // 真・動物模型控制器（有真模型嘅物種先有，冇就用程式動物）
+let petSeq = 0;            // placePet 序號，防 async 載入換錯星球
+const _petPrev = new THREE.Vector3();
 let playerCtl = null;      // 真・GLB 公仔（載入失敗 = null，改用寵物做可操控角色）
 let avatar = null;         // 被操控移動嘅 Object3D（優先玩家公仔）
 let clock = new THREE.Clock();
@@ -88,6 +92,8 @@ function disposeTree(obj) {
 
 function placePet() {
   const { assistant } = assistantFor(state.planetId);
+  const seq = ++petSeq;
+  if (petCtl) { petCtl.dispose(); petCtl = null; }
   if (pet) { scene.remove(pet); disposeTree(pet); }
   pet = createCharacter(assistant);
   petKind = assistant.kind;
@@ -97,6 +103,22 @@ function placePet() {
   else pet.position.set(0, 0, 2.5);
   scene.add(pet);
   if (!playerCtl) avatar = pet;
+  _petPrev.copy(pet.position);
+  // 有真模型嘅物種：async 載入後無縫換走程式動物（載入期間照用住程式動物先）
+  createPetModel(assistant).then(ctl => {
+    if (!ctl || seq !== petSeq || !pet) { if (ctl) ctl.dispose(); return; }
+    const old = pet;
+    ctl.object.position.copy(old.position);
+    ctl.object.rotation.copy(old.rotation);
+    scene.remove(old);
+    disposeTree(old);
+    pet = ctl.object;
+    petCtl = ctl;
+    petKind = "glbpet"; // GLB 動物面向 +Z（同公仔一樣），headingFor 用預設公式
+    scene.add(pet);
+    if (avatar === old) avatar = pet;
+    _petPrev.copy(pet.position);
+  }).catch(() => { /* 載入失敗：保留程式動物 */ });
 }
 
 function switchPlanet(planet) {
@@ -195,7 +217,15 @@ function updateMovement(dt) {
 
 function updatePetFollow(dt, t) {
   if (!pet) return;
-  updateCharacter(pet, t, dt);
+  if (petCtl) {
+    // 真模型：按實際移動速度切換 Survey/Walk/Run 動畫
+    const moved = pet.position.distanceTo(_petPrev);
+    petCtl.setLocomotion(THREE.MathUtils.clamp(moved / Math.max(dt, 0.001) / RUN_SPEED, 0, 1));
+    petCtl.update(dt);
+    _petPrev.copy(pet.position);
+  } else {
+    updateCharacter(pet, t, dt);
+  }
   if (!playerCtl || avatar !== playerCtl.object) return; // 冇公仔時寵物自己係主角，唔使跟
   // 跟班錨點：公仔身後左側
   const h = playerCtl.object.rotation.y;

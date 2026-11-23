@@ -48,3 +48,7 @@ python3 -m http.server 8000
 ## 部署
 GitHub Pages：repo → Settings → Pages → Source 揀 `main` / root。
 已加 `.nojekyll` 避免 Jekyll 處理。
+
+## 素材授權
+- 主角公仔 player.vrm：pixiv Inc. 官方 VRM 樣本（VRM 1.0 license，https://vrm.dev/licenses/1.0/ ）
+- 動物 fox.glb：模型 © PixelMannen (CC0)；綁定與動畫 © tomkranis (CC-BY 4.0)；glTF 轉換 © AsoboStudio / scurest (CC-BY 4.0)；來源 KhronosGroup glTF Sample Assets
