@@ -306,6 +306,23 @@ createPlayer().then(ctl => {
   scene.add(ctl.object);
   avatar = ctl.object;
   placePet();
+  // 驗收鉤子 ?emotetest=1：載入後自動打招呼（hold 9 秒，平台包絡）＋每 12 秒重播一次，
+  // 畀靜態截圖捉到笑容／點頭一刻；畫面左下角 overlay 列出 VRM 表情名，定位 run#4 笑容失效原因。
+  // 正常遊玩唔帶參數就唔受影響。
+  if (new URLSearchParams(location.search).has("emotetest")) {
+    const fire = () => { if (playerCtl) playerCtl.playEmote("agree", 9000); };
+    setTimeout(fire, 1500);
+    setInterval(fire, 12000);
+    const dbg = document.createElement("div");
+    dbg.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99;background:rgba(0,0,0,.75);color:#fff;font:12px/1.5 monospace;padding:6px 8px;border-radius:6px;white-space:pre;";
+    dbg.textContent = "表情：檢查中…";
+    document.body.appendChild(dbg);
+    setInterval(() => {
+      const names = window.__aenoExprNames || [];
+      const list = names.length ? names.join("、") : (playerCtl ? "非 VRM 公仔（GLB 後備）" : "檢查中…");
+      dbg.textContent = `表情清單：${list}\nhappy：${names.includes("happy") ? "有" : "無"}｜joy：${names.includes("joy") ? "有" : "無"}｜fun：${names.includes("fun") ? "有" : "無"}｜blink：${names.includes("blink") ? "有" : "無"}\n打招呼權重：${(window.__aenoEmoteW || 0).toFixed(2)}`;
+    }, 500);
+  }
 }).catch(err => {
   console.warn("公仔模型載入失敗，退回程式角色：", err);
   placePet();

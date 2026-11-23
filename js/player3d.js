@@ -79,6 +79,21 @@ async function createVrmPlayer() {
     if (!em) return;
     for (const n of names) if (em.getExpression(n)) em.setValue(n, w);
   };
+  // 驗收診斷：列出 VRM 實際有嘅表情名（setExpr 只 set 存在嘅表情；
+  // run#4 打招呼四次都見唔到笑容，懷疑 pixiv 樣本根本冇 happy/joy/fun）
+  const EXPR_PROBE = ["blink", "happy", "angry", "sad", "relaxed", "surprised", "neutral", "aa", "ih", "ou", "ee", "oh", "lookUp", "lookDown", "lookLeft", "lookRight", "blinkLeft", "blinkRight", "joy", "fun"];
+  const exprNames = [];
+  try {
+    if (em && em.expressions && typeof em.expressions.keys === "function") {
+      for (const k of em.expressions.keys()) exprNames.push(k);
+    }
+    if (!exprNames.length && em) for (const n of EXPR_PROBE) if (em.getExpression(n)) exprNames.push(n);
+  } catch (e) { console.warn("[aeno] 表情清單讀取失敗：", e); }
+  window.__aenoExprNames = exprNames;
+  window.__aenoEmoteW = 0;
+  // 驗收鉤子 ?emotetest=1：打招呼表情改用平台包絡（hold 滿權重畀靜態截圖捉）；
+  // 正常遊玩唔帶參數就沿用 sin 包絡，唔受影響
+  const EMOTE_TEST = new URLSearchParams(location.search).has("emotetest");
 
   // 骨骼姿勢：骨骼本地空間 delta（q = rest * delta），標準化骨骼軸向已統一
   const _e = new THREE.Euler(), _q = new THREE.Quaternion();
@@ -158,10 +173,14 @@ async function createVrmPlayer() {
       if (emoteUntil > 0) {
         if (clock <= emoteUntil) {
           const t = (clock - emoteStart) / (emoteUntil - emoteStart);
-          const w = Math.sin(Math.min(1, t) * Math.PI);
+          // 正常：sin 包絡 1.3 秒，峰值易錯過；?emotetest=1：平台包絡 hold 滿權重畀截圖捉
+          const w = EMOTE_TEST
+            ? (t < 0.15 ? t / 0.15 : t > 0.85 ? Math.max(0, (1 - t) / 0.15) : 1)
+            : Math.sin(Math.min(1, t) * Math.PI);
+          window.__aenoEmoteW = w;
           setExpr(["happy", "joy", "fun"], w);
           pose(B.head, Math.abs(Math.sin(t * Math.PI * 2)) * 0.22 * w + 0.05, 0, 0);
-        } else { setExpr(["happy", "joy", "fun"], 0); emoteUntil = -1; }
+        } else { setExpr(["happy", "joy", "fun"], 0); window.__aenoEmoteW = 0; emoteUntil = -1; }
       }
 
       vrm.update(dt); // SpringBone（頭髮/衫擺物理）+ 表情 + 朝向，一次過更新
