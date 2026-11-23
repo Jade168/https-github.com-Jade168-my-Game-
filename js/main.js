@@ -72,6 +72,8 @@ let pet = null;            // 動物助手（寵物跟班）
 let petKind = "quadruped";
 let petCtl = null;         // 真・動物模型控制器（有真模型嘅物種先有，冇就用程式動物）
 window.__aenoPetGlb = false; // 驗收診斷：true = 寵物已換上真 GLB 模型，false = 程式動物後備
+window.__aenoPetError = "";  // 驗收診斷：最近一次寵物真模型載入失敗原因（空字串 = 無失敗／已成功）
+window.__aenoPetFetch = "";  // 驗收診斷：petdebug 模式先做 fox.glb fetch 探測
 let petSeq = 0;            // placePet 序號，防 async 載入換錯星球
 const _petPrev = new THREE.Vector3();
 let playerCtl = null;      // 真・GLB 公仔（載入失敗 = null，改用寵物做可操控角色）
@@ -119,12 +121,13 @@ function placePet() {
     pet = ctl.object;
     petCtl = ctl;
     window.__aenoPetGlb = true;
+    window.__aenoPetError = "";
     console.info("[aeno] 寵物真模型已載入：", assistant.species);
     petKind = "glbpet"; // GLB 動物面向 +Z（同公仔一樣），headingFor 用預設公式
     scene.add(pet);
     if (avatar === old) avatar = pet;
     _petPrev.copy(pet.position);
-  }).catch(err => { console.warn("[aeno] 寵物真模型載入失敗，保留程式動物：", assistant.species, err); });
+  }).catch(err => { window.__aenoPetError = String((err && err.message) || err); console.warn("[aeno] 寵物真模型載入失敗，保留程式動物：", assistant.species, err); });
 }
 
 function switchPlanet(planet) {
@@ -137,6 +140,8 @@ const keys = {};
 // 驗收鉤子 ?autowalk=1：自動向前行，畀雲端瀏覽器驗收行走動畫用
 // （瀏覽器工具做唔到長按 W）；正常開 game 唔帶參數就完全唔受影響。
 const AUTO_WALK = new URLSearchParams(location.search).has("autowalk");
+// 驗收鉤子 ?facecam=1：鏡頭移到主角正面，睇面孔／眨眼用（正常遊玩唔帶參數就唔受影響）
+const FACE_CAM = new URLSearchParams(location.search).has("facecam");
 window.addEventListener("keydown", e => {
   if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
   keys[e.code] = true;
@@ -260,6 +265,11 @@ function updateCameraFollow(dt) {
   controls.target.lerp(_desiredTarget, Math.min(1, dt * 6));
   _targetDelta.subVectors(controls.target, _prevTarget);
   camera.position.add(_targetDelta);
+  if (FACE_CAM) {
+    // 驗收鉤子：鏡頭企喺主角正面 4.2 米外、1.9 米高，主角行過嚟都保持正面
+    const fwd = new THREE.Vector3(Math.sin(avatar.rotation.y), 0, Math.cos(avatar.rotation.y));
+    camera.position.copy(avatar.position).addScaledVector(fwd, 4.2).add(new THREE.Vector3(0, 1.9, 0));
+  }
 }
 
 function animate() {
@@ -336,6 +346,23 @@ function toast(msg, type) {
 
 // 首次載入即隱藏 loading（3D 已就緒）
 hideLoading();
+
+// 驗收診斷 ?petdebug=1：畫面左下角顯示寵物模型狀態＋載入錯誤＋fox.glb 探測結果
+// （雲端瀏覽器開唔到 DevTools，靠呢個 overlay 讀數；正常遊玩唔帶參數就唔出現）
+if (new URLSearchParams(location.search).has("petdebug")) {
+  const dbg = document.createElement("div");
+  dbg.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99;background:rgba(0,0,0,.75);color:#fff;font:12px/1.5 monospace;padding:6px 8px;border-radius:6px;white-space:pre;";
+  dbg.textContent = "寵物模型：檢查中…";
+  document.body.appendChild(dbg);
+  setInterval(() => {
+    dbg.textContent = `寵物模型：${window.__aenoPetGlb ? "真 GLB" : "程式後備"}\n載入錯誤：${window.__aenoPetError || "無"}\nfox.glb 探測：${window.__aenoPetFetch || "檢查中…"}`;
+  }, 500);
+  setTimeout(() => {
+    fetch("./assets/models/fox.glb").then(r => {
+      window.__aenoPetFetch = `HTTP ${r.status}，${r.headers.get("content-length") || "?"} bytes`;
+    }).catch(e => { window.__aenoPetFetch = "fetch 失敗：" + String((e && e.message) || e); });
+  }, 2000);
+}
 saveState();
 
 // PWA
