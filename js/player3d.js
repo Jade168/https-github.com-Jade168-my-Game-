@@ -96,6 +96,10 @@ async function createVrmPlayer() {
   let clock = 0;
   let emoteUntil = -1, emoteStart = 0;
   let nextBlink = 1.6, blinkT = -1;
+  // 驗收鉤子 ?blinktest=1：眨眼放慢到 1.2 秒、每 2 秒一次，畀靜態截圖捉到閉眼一刻
+  // （正常眨眼得 0.13 秒，截圖捉唔到唔等於失效；正常遊玩唔帶參數就唔受影響）
+  const BLINK_TEST = new URLSearchParams(location.search).has("blinktest");
+  const BLINK_DUR = BLINK_TEST ? 1.2 : 0.13;
 
   return {
     object: root,
@@ -146,8 +150,8 @@ async function createVrmPlayer() {
       if (blinkT < 0 && clock >= nextBlink) blinkT = 0;
       if (blinkT >= 0) {
         blinkT += dt;
-        const p = blinkT / 0.13;
-        if (p >= 1) { setExpr(["blink"], 0); blinkT = -1; nextBlink = clock + 1.8 + Math.random() * 2.4; }
+        const p = blinkT / BLINK_DUR;
+        if (p >= 1) { setExpr(["blink"], 0); blinkT = -1; nextBlink = clock + (BLINK_TEST ? 2.0 : 1.8 + Math.random() * 2.4); }
         else setExpr(["blink"], Math.sin(p * Math.PI));
       }
       // 打招呼：開心表情 + 點頭
