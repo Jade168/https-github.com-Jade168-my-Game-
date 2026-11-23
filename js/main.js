@@ -71,6 +71,7 @@ let world = null;
 let pet = null;            // 動物助手（寵物跟班）
 let petKind = "quadruped";
 let petCtl = null;         // 真・動物模型控制器（有真模型嘅物種先有，冇就用程式動物）
+window.__aenoPetGlb = false; // 驗收診斷：true = 寵物已換上真 GLB 模型，false = 程式動物後備
 let petSeq = 0;            // placePet 序號，防 async 載入換錯星球
 const _petPrev = new THREE.Vector3();
 let playerCtl = null;      // 真・GLB 公仔（載入失敗 = null，改用寵物做可操控角色）
@@ -96,6 +97,7 @@ function placePet() {
   const { assistant } = assistantFor(state.planetId);
   const seq = ++petSeq;
   if (petCtl) { petCtl.dispose(); petCtl = null; }
+  window.__aenoPetGlb = false;
   if (pet) { scene.remove(pet); disposeTree(pet); }
   pet = createCharacter(assistant);
   petKind = assistant.kind;
@@ -116,11 +118,13 @@ function placePet() {
     disposeTree(old);
     pet = ctl.object;
     petCtl = ctl;
+    window.__aenoPetGlb = true;
+    console.info("[aeno] 寵物真模型已載入：", assistant.species);
     petKind = "glbpet"; // GLB 動物面向 +Z（同公仔一樣），headingFor 用預設公式
     scene.add(pet);
     if (avatar === old) avatar = pet;
     _petPrev.copy(pet.position);
-  }).catch(() => { /* 載入失敗：保留程式動物 */ });
+  }).catch(err => { console.warn("[aeno] 寵物真模型載入失敗，保留程式動物：", assistant.species, err); });
 }
 
 function switchPlanet(planet) {
