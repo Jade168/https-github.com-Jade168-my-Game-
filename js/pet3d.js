@@ -24,7 +24,10 @@ function loadPetGltf(url) {
 }
 
 const MODELS = {
-  wolf: { url: "./assets/models/fox.glb", height: 1.02, tint: 0x8fa3c4 },
+  // 狼暫用狐模型頂住（tint 已取消：Fox 得一個材質＋橙色貼圖，material.color 係乘上去，
+  // 灰藍 tint 會將橙毛壓成暗啡、白色嘴／尾尖變灰藍，睇落似爛程式後備——v13 診斷證實；
+  // 用返狐狸原色先靚，等搵到真狼 GLB 再換）
+  wolf: { url: "./assets/models/fox.glb", height: 1.02, tint: null },
   fox: { url: "./assets/models/fox.glb", height: 0.92, tint: null }
 };
 
