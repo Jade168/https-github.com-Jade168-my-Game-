@@ -1,5 +1,5 @@
 // sw.js — AENO V3 離線快取
-const CACHE = "aeno-v3-2";
+const CACHE = "aeno-v3-3";
 const ASSETS = [
   "./", "./index.html", "./style.css",
   "./manifest.json", "./planets.json",
