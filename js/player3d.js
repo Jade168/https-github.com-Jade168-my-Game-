@@ -81,16 +81,24 @@ async function createVrmPlayer() {
   };
   // 驗收診斷：列出 VRM 實際有嘅表情名（setExpr 只 set 存在嘅表情；
   // run#4 打招呼四次都見唔到笑容，懷疑 pixiv 樣本根本冇 happy/joy/fun）
+  // 注意：three-vrm 2.x 嘅 em.expressions 係陣列，.keys() 只會攞到 0–17 index
+  // （v16 就係咁錯列數字兼誤判 blink「無」）；真名喺 em.expressionMap
   const EXPR_PROBE = ["blink", "happy", "angry", "sad", "relaxed", "surprised", "neutral", "aa", "ih", "ou", "ee", "oh", "lookUp", "lookDown", "lookLeft", "lookRight", "blinkLeft", "blinkRight", "joy", "fun"];
   const exprNames = [];
   try {
-    if (em && em.expressions && typeof em.expressions.keys === "function") {
-      for (const k of em.expressions.keys()) exprNames.push(k);
+    if (em) {
+      if (em.expressionMap && typeof em.expressionMap === "object") {
+        for (const k of Object.keys(em.expressionMap)) exprNames.push(k);
+      }
+      if (!exprNames.length && Array.isArray(em.expressions)) {
+        for (const e of em.expressions) if (e && e.expressionName) exprNames.push(e.expressionName);
+      }
+      if (!exprNames.length) for (const n of EXPR_PROBE) if (em.getExpression(n)) exprNames.push(n);
     }
-    if (!exprNames.length && em) for (const n of EXPR_PROBE) if (em.getExpression(n)) exprNames.push(n);
   } catch (e) { console.warn("[aeno] 表情清單讀取失敗：", e); }
   window.__aenoExprNames = exprNames;
   window.__aenoEmoteW = 0;
+  window.__aenoEmoteT = -1; // 打招呼進行中嘅 t（0–1），-1 = 未進行（驗收對照包絡位置用）
   // 驗收鉤子 ?emotetest=1：打招呼表情改用平台包絡（hold 滿權重畀靜態截圖捉）；
   // 正常遊玩唔帶參數就沿用 sin 包絡，唔受影響
   const EMOTE_TEST = new URLSearchParams(location.search).has("emotetest");
@@ -178,9 +186,10 @@ async function createVrmPlayer() {
             ? (t < 0.15 ? t / 0.15 : t > 0.85 ? Math.max(0, (1 - t) / 0.15) : 1)
             : Math.sin(Math.min(1, t) * Math.PI);
           window.__aenoEmoteW = w;
+          window.__aenoEmoteT = t;
           setExpr(["happy", "joy", "fun"], w);
           pose(B.head, Math.abs(Math.sin(t * Math.PI * 2)) * 0.22 * w + 0.05, 0, 0);
-        } else { setExpr(["happy", "joy", "fun"], 0); window.__aenoEmoteW = 0; emoteUntil = -1; }
+        } else { setExpr(["happy", "joy", "fun"], 0); window.__aenoEmoteW = 0; window.__aenoEmoteT = -1; emoteUntil = -1; }
       }
 
       vrm.update(dt); // SpringBone（頭髮/衫擺物理）+ 表情 + 朝向，一次過更新

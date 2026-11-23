@@ -320,7 +320,7 @@ createPlayer().then(ctl => {
     setInterval(() => {
       const names = window.__aenoExprNames || [];
       const list = names.length ? names.join("、") : (playerCtl ? "非 VRM 公仔（GLB 後備）" : "檢查中…");
-      dbg.textContent = `表情清單：${list}\nhappy：${names.includes("happy") ? "有" : "無"}｜joy：${names.includes("joy") ? "有" : "無"}｜fun：${names.includes("fun") ? "有" : "無"}｜blink：${names.includes("blink") ? "有" : "無"}\n打招呼權重：${(window.__aenoEmoteW || 0).toFixed(2)}`;
+      dbg.textContent = `表情清單：${list}\nhappy：${names.includes("happy") ? "有" : "無"}｜joy：${names.includes("joy") ? "有" : "無"}｜fun：${names.includes("fun") ? "有" : "無"}｜blink：${names.includes("blink") ? "有" : "無"}\n打招呼權重：${(window.__aenoEmoteW || 0).toFixed(2)}｜t：${(window.__aenoEmoteT ?? -1) < 0 ? "未進行" : (window.__aenoEmoteT).toFixed(2)}`;
     }, 500);
   }
 }).catch(err => {
