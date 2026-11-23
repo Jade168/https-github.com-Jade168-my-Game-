@@ -425,6 +425,30 @@ canvas { display: block; }
   #ctrlHint { display: none; }
 }
 
+/* 鏡頭縮放掣（右側，任何裝置都顯示） */
+#zoomBtns {
+  position: fixed;
+  right: 16px;
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 6;
+}
+#zoomBtns button {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(10, 16, 34, 0.45);
+  border: 1.5px solid rgba(125, 211, 252, 0.45);
+  color: #e0f2fe;
+  font-size: 28px;
+  line-height: 1;
+  touch-action: none;
+  cursor: pointer;
+}
+#zoomBtns button:active { background: rgba(56, 130, 246, 0.55); }
+
 /* 適應細屏 */
 @media (max-width: 560px) {
   #assistantPanel { left: 10px; right: 10px; width: auto; bottom: calc(158px + env(safe-area-inset-bottom, 0px)); }

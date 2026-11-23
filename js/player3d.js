@@ -81,13 +81,15 @@ async function createVrmPlayer() {
   const happyBinds = exprBinds("happy");
   const setExpr = (binds, w) => { for (const b of binds) b.mesh.morphTargetInfluences[b.index] = w * b.weight; };
 
-  // 骨骼姿勢：喺父空間施加旋轉 delta（q = delta * rest），對 J_Bip 骨架最穩陣
+  // 骨骼姿勢：喺骨骼本地空間施加旋轉 delta（q = rest * delta）
+  // J_Bip 骨骼本地軸 ≈ 世界軸（rest 旋轉接近 identity），本地空間先至令手臂正確垂低；
+  // 父空間 delta 會畀肩膀骨嘅朝向扭曲旋轉軸（實測手臂垂唔低，保持 T-pose）
   const _e = new THREE.Euler(), _q = new THREE.Quaternion();
   function pose(b, rx = 0, ry = 0, rz = 0) {
     if (!b) return;
     _e.set(rx, ry, rz);
     _q.setFromEuler(_e);
-    b.quaternion.copy(_q).multiply(b.userData.rest);
+    b.quaternion.copy(b.userData.rest).multiply(_q);
   }
 
   let phase = 0;          // 行走相位

@@ -13,7 +13,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x0a0f22, 90, 260);
 
 const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1200);
-camera.position.set(9, 7, 14);
+camera.position.set(6.5, 4.6, 9.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -28,10 +28,26 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.minDistance = 4;
-controls.maxDistance = 30;
+controls.enableZoom = true;              // 雙指／滾輪縮放
+controls.zoomSpeed = 1.15;
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+controls.minDistance = 3;
+controls.maxDistance = 34;
 controls.maxPolarAngle = Math.PI * 0.49;
 controls.target.set(0, 1.4, 0);
+renderer.domElement.style.touchAction = "none";
+
+// 鏡頭縮放掣（＋拉近／－拉遠）：直接改鏡頭同目標嘅距離，跟隨邏輯會保留呢個距離
+function dollyBy(factor) {
+  const off = camera.position.clone().sub(controls.target);
+  const len = THREE.MathUtils.clamp(off.length() * factor, controls.minDistance, controls.maxDistance);
+  off.setLength(len);
+  camera.position.copy(controls.target).add(off);
+}
+const zoomInBtn = document.getElementById("zoomIn");
+const zoomOutBtn = document.getElementById("zoomOut");
+if (zoomInBtn) zoomInBtn.addEventListener("click", () => dollyBy(0.75));
+if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => dollyBy(1.33));
 
 // 光源
 scene.add(new THREE.HemisphereLight(0xffffff, 0x2a3550, 0.9));
