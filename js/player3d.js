@@ -23,20 +23,21 @@ function normalizeHeight(model, target) {
   return s;
 }
 
-// ---------- VRM 動漫公仔 ----------
+// ---------- VRM 動漫公仔（three-vrm 官方載入器） ----------
+// 用 pixiv three-vrm 載入：先啟用到真・動漫渲染 MToon（平面色階/描邊）、
+// 頭髮與衫擺嘅 SpringBone 物理、標準化人形骨骼（normalized bones，跨模型一致）、
+// 表情管理器（blink/happy）。three-vrm 用動態 import 載入，CDN 出事會自動退 GLB 後備。
 async function createVrmPlayer() {
-  // 先攞原始 bytes：要嚟 parse VRMC_vrm 擴展（人形骨骼對照 + 表情 morph 對照）
-  const buf = await (await fetch(VRM_URL)).arrayBuffer();
-  const dv = new DataView(buf);
-  const jsonLen = dv.getUint32(12, true);
-  const vrmJson = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
-  const vrmExt = vrmJson.extensions && vrmJson.extensions.VRMC_vrm;
-  if (!vrmExt) throw new Error("player.vrm 唔係 VRM 1.0 檔案");
+  const { VRMLoaderPlugin, VRMUtils } = await import("@pixiv/three-vrm");
 
   const loader = new GLTFLoader();
-  const gltf = await loader.parseAsync(buf, "");
-  const model = gltf.scene;
+  loader.register(parser => new VRMLoaderPlugin(parser));
+  const gltf = await loader.loadAsync(VRM_URL);
+  const vrm = gltf.userData.vrm;
+  if (!vrm) throw new Error("player.vrm 解析唔到 VRM 資料");
+  if (vrm.meta && vrm.meta.metaVersion === "0") VRMUtils.rotateVRM0(vrm); // 0.x 模型面向修正
 
+  const model = vrm.scene;
   model.traverse(o => {
     if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
   });
@@ -45,21 +46,15 @@ async function createVrmPlayer() {
   const root = new THREE.Group();
   root.add(model);
 
-  // 人形骨骼（用節點名搵 three 物件）
-  const hb = vrmExt.humanoid.humanBones;
-  const bone = key => {
-    const spec = hb[key];
-    if (!spec) return null;
-    const name = vrmJson.nodes[spec.node] && vrmJson.nodes[spec.node].name;
-    return name ? model.getObjectByName(name) : null;
-  };
+  // 標準化骨骼（normalized）：軸向跨模型一致，唔使再估每隻公仔嘅骨架方向
+  const nb = name => vrm.humanoid.getNormalizedBoneNode(name);
   const B = {
-    hips: bone("hips"), spine: bone("spine"), chest: bone("chest"),
-    neck: bone("neck"), head: bone("head"),
-    armLU: bone("leftUpperArm"), armLL: bone("leftLowerArm"),
-    armRU: bone("rightUpperArm"), armRL: bone("rightLowerArm"),
-    legLU: bone("leftUpperLeg"), legLL: bone("leftLowerLeg"), footL: bone("leftFoot"),
-    legRU: bone("rightUpperLeg"), legRL: bone("rightLowerLeg"), footR: bone("rightFoot")
+    hips: nb("hips"), spine: nb("spine"), chest: nb("chest"),
+    neck: nb("neck"), head: nb("head"),
+    armLU: nb("leftUpperArm"), armLL: nb("leftLowerArm"),
+    armRU: nb("rightUpperArm"), armRL: nb("rightLowerArm"),
+    legLU: nb("leftUpperLeg"), legLL: nb("leftLowerLeg"), footL: nb("leftFoot"),
+    legRU: nb("rightUpperLeg"), legRL: nb("rightLowerLeg"), footR: nb("rightFoot")
   };
   if (!B.hips || !B.head || !B.legLU || !B.legRU || !B.armLU || !B.armRU) {
     throw new Error("player.vrm 人形骨骼唔完整");
@@ -67,23 +62,14 @@ async function createVrmPlayer() {
   for (const k in B) if (B[k]) B[k].userData.rest = B[k].quaternion.clone();
   const hipsRestY = B.hips.position.y;
 
-  // 表情 morph（blink / happy）：用 VRM 規格嘅 morphTargetBinds 對照
-  const exprBinds = name => {
-    const e = vrmExt.expressions && vrmExt.expressions.preset && vrmExt.expressions.preset[name];
-    if (!e || !e.morphTargetBinds) return [];
-    return e.morphTargetBinds.map(b => {
-      const nodeName = vrmJson.nodes[b.node] && vrmJson.nodes[b.node].name;
-      const mesh = nodeName ? model.getObjectByName(nodeName) : null;
-      return mesh && mesh.morphTargetInfluences ? { mesh, index: b.index, weight: b.weight ?? 1 } : null;
-    }).filter(Boolean);
+  // 表情：用 three-vrm 表情管理器（1.0 用 happy，0.x 用 joy/fun，存在先 set）
+  const em = vrm.expressionManager;
+  const setExpr = (names, w) => {
+    if (!em) return;
+    for (const n of names) if (em.getExpression(n)) em.setValue(n, w);
   };
-  const blinkBinds = exprBinds("blink");
-  const happyBinds = exprBinds("happy");
-  const setExpr = (binds, w) => { for (const b of binds) b.mesh.morphTargetInfluences[b.index] = w * b.weight; };
 
-  // 骨骼姿勢：喺骨骼本地空間施加旋轉 delta（q = rest * delta）
-  // J_Bip 骨骼本地軸 ≈ 世界軸（rest 旋轉接近 identity），本地空間先至令手臂正確垂低；
-  // 父空間 delta 會畀肩膀骨嘅朝向扭曲旋轉軸（實測手臂垂唔低，保持 T-pose）
+  // 骨骼姿勢：骨骼本地空間 delta（q = rest * delta），標準化骨骼軸向已統一
   const _e = new THREE.Euler(), _q = new THREE.Quaternion();
   function pose(b, rx = 0, ry = 0, rz = 0) {
     if (!b) return;
@@ -92,10 +78,10 @@ async function createVrmPlayer() {
     b.quaternion.copy(b.userData.rest).multiply(_q);
   }
 
-  let phase = 0;          // 行走相位
-  let blend = 0;          // 0=企定 1=全速移動（平滑過渡）
+  let phase = 0;
+  let blend = 0;
   let blendTarget = 0;
-  let speedNow = 0;       // setLocomotion 傳入嘅速度 0..1
+  let speedNow = 0;
   let clock = 0;
   let emoteUntil = -1, emoteStart = 0;
   let nextBlink = 1.6, blinkT = -1;
@@ -113,49 +99,49 @@ async function createVrmPlayer() {
     update(dt) {
       clock += dt;
       blend += (blendTarget - blend) * Math.min(1, dt * 7);
-      const runFactor = speedNow > 0.72 ? 1.35 : 1;      // 跑：步頻同擺幅都大啲
+      const runFactor = speedNow > 0.72 ? 1.35 : 1;
       phase += dt * (7.2 * runFactor) * blend;
       const amp = (0.52 + 0.18 * (runFactor - 1)) * blend;
       const s = Math.sin(phase), c = Math.cos(phase);
 
-      // 腿：前後擺（向前 = -X）；膝：屈曲為 +X；腳掌補償保持貼地感
+      // 腿：前後擺（向前 = -X）；膝：屈曲為 +X；腳掌補償
       pose(B.legLU, -s * amp, 0, 0);
       pose(B.legRU, s * amp, 0, 0);
       pose(B.legLL, Math.max(0, Math.sin(phase + 0.75)) * 0.85 * blend + 0.03, 0, 0);
       pose(B.legRL, Math.max(0, Math.sin(phase + Math.PI + 0.75)) * 0.85 * blend + 0.03, 0, 0);
       pose(B.footL, (s * amp) * 0.55 - 0.05, 0, 0);
       pose(B.footR, (-s * amp) * 0.55 - 0.05, 0, 0);
-      // 手臂：常態垂低（左 -Z / 右 +Z 約 66°），行走時同對側腿反相擺；手肘微屈
+      // 手臂：常態垂低（左 -Z / 右 +Z），行走反相擺；手肘微屈
       pose(B.armLU, s * amp * 0.62, 0, -1.15 + s * 0.03);
       pose(B.armRU, -s * amp * 0.62, 0, 1.15 - s * 0.03);
       pose(B.armLL, -0.28 - Math.max(0, s) * 0.18 * blend, 0, -0.06);
       pose(B.armRL, -0.28 - Math.max(0, -s) * 0.18 * blend, 0, 0.06);
-      // 身體：移動時輕微前傾 + 左右搖；企定時呼吸
+      // 身體：呼吸 / 前傾 / 搖擺
       const breathe = Math.sin(clock * 1.7) * 0.018 * (1 - blend);
       pose(B.chest, breathe - blend * 0.06, s * 0.045 * blend, s * 0.02 * blend);
       pose(B.spine, breathe * 0.5 - blend * 0.03, 0, 0);
-      // 頭：企定輕微左右望，移動望前方；打招呼時點頭（emote 段覆寫）
       pose(B.head, 0, Math.sin(clock * 0.43) * 0.07 * (1 - blend), Math.sin(clock * 0.31) * 0.02);
-      // 臀部上下浮動（行走節奏）
       B.hips.position.y = hipsRestY - Math.abs(c) * 0.045 * blend;
 
-      // 眨眼：每 1.8–4.2 秒一次，0.13 秒開合
+      // 眨眼
       if (blinkT < 0 && clock >= nextBlink) blinkT = 0;
       if (blinkT >= 0) {
         blinkT += dt;
         const p = blinkT / 0.13;
-        if (p >= 1) { setExpr(blinkBinds, 0); blinkT = -1; nextBlink = clock + 1.8 + Math.random() * 2.4; }
-        else setExpr(blinkBinds, Math.sin(p * Math.PI));
+        if (p >= 1) { setExpr(["blink"], 0); blinkT = -1; nextBlink = clock + 1.8 + Math.random() * 2.4; }
+        else setExpr(["blink"], Math.sin(p * Math.PI));
       }
-      // 表情動作（打招呼）：開心表情 + 點頭兩下
+      // 打招呼：開心表情 + 點頭
       if (emoteUntil > 0) {
         if (clock <= emoteUntil) {
           const t = (clock - emoteStart) / (emoteUntil - emoteStart);
           const w = Math.sin(Math.min(1, t) * Math.PI);
-          setExpr(happyBinds, w);
+          setExpr(["happy", "joy", "fun"], w);
           pose(B.head, Math.abs(Math.sin(t * Math.PI * 2)) * 0.22 * w + 0.05, 0, 0);
-        } else { setExpr(happyBinds, 0); emoteUntil = -1; }
+        } else { setExpr(["happy", "joy", "fun"], 0); emoteUntil = -1; }
       }
+
+      vrm.update(dt); // SpringBone（頭髮/衫擺物理）+ 表情 + 朝向，一次過更新
     },
     dispose() {
       model.traverse(o => {
