@@ -69,7 +69,15 @@ function decorateIsland(group, planet) {
   const decor = new THREE.Group();
   group.add(decor);
 
-  const rng = (a, b) => a + Math.random() * (b - a);
+  // 以星球 id 做種子：同一個星球每次入去佈置一樣，唔再隨機重掟
+  let seed = 2166136261;
+  for (const ch of planet.id) { seed ^= ch.charCodeAt(0); seed = Math.imul(seed, 16777619); }
+  const rand = () => {
+    seed = Math.imul(seed ^ (seed >>> 15), 2246822507);
+    seed = Math.imul(seed ^ (seed >>> 13), 3266489909);
+    return ((seed ^= seed >>> 16) >>> 0) / 4294967296;
+  };
+  const rng = (a, b) => a + rand() * (b - a);
 
   // 建築：主塔 + 小屋
   for (let i = 0; i < 4; i++) {
@@ -94,7 +102,7 @@ function decorateIsland(group, planet) {
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.9 });
   const crystalMat = new THREE.MeshStandardMaterial({ color: hex(planet.accent), roughness: 0.15, metalness: 0.5, emissive: hex(planet.accent), emissiveIntensity: 0.35 });
   for (let i = 0; i < 14; i++) {
-    const a = Math.random() * Math.PI * 2;
+    const a = rand() * Math.PI * 2;
     const r = rng(4, 21);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (Math.hypot(x, z) < 4) continue;

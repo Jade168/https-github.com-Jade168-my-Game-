@@ -3,7 +3,8 @@
 3D 動漫風星際文明遊戲（browser-based，無需 build）。
 
 ## 玩法
-- 20 個語言星球，每個有專屬 AI 動物助手（卡通渲染 3D）
+- 真・3D 公仔主角（GLB 骨骼模型）：WASD／方向鍵行走、Shift 跑、E 打招呼，手機有虛擬搖桿；鏡頭第三身稱跟隨
+- 20 個語言星球，每個有專屬 AI 動物助手（卡通渲染 3D，會跟喺主角身邊做寵物跟班）
 - 學習外語 / 派機器人探索 / 建造 / DNA 變異 → 賺 AENO 幣
 - 文明升級 → 解鎖下一個星球
 - 進度存 localStorage，離線最多計 24 小時收益
@@ -28,7 +29,14 @@ js/ui.js            HUD 綁定
 js/game.js          動作處理 + 經濟結算
 js/world3d.js       3D 世界（天空 / 星空 / 浮空島 / 星球主題）
 js/characters3d.js  卡通渲染動物角色產生器 + 動畫
+js/player3d.js      玩家公仔：GLB 載入 + 骨骼動畫狀態機（idle/walk/run）
+assets/models/player.glb  公仔模型（示範模型，來源 three.js 範例／Mixamo beta 角色）
 ```
+
+## 換公仔方法
+將新嘅 GLB 檔（需內嵌 idle / walk / run 骨骼動畫）改名做 `player.glb`，
+覆蓋 `assets/models/player.glb` 即可，唔使改任何程式碼。
+正式版公仔建議用 VRoid Studio 製作動漫角色再匯出／轉成 GLB。
 
 ## 本機執行
 ```bash
