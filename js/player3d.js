@@ -188,12 +188,13 @@ async function createVrmPlayer() {
           window.__aenoEmoteW = w;
           window.__aenoEmoteT = t;
           setExpr(["happy", "joy", "fun"], w);
-          // run#6：打招呼加揮手＋加大點頭——pixiv 樣本 happy 嘴形太含蓄（讀落似細「o」開口），
-          // 靠肢體語言令招呼讀落開心：右臂抬起向側上方、手肘屈起、手掌左右擺；點頭由 0.22 加到 0.38。
-          // 右臂常態 rz +1.15 係垂低，w=1 時拉到 -0.55 即抬起過肩；揮手用遊戲時鐘 sin，platform 包絡 hold 期間持續擺。
+          // run#7（v19）：揮手改入額平面——v18 前臂 rx 向前屈，facecam 正面睇透視縮短似直臂、
+          // 手掌 rz 左右擺讀唔到。改法：上臂繞長軸扭轉 ry（將屈肘鉸鏈平面由矢狀面轉入額平面），
+          // 前臂 rx 屈肘變成喺正面可見嘅向上屈，揮手擺動改放喺前臂 rx（手掌喺額平面掃動）。
+          // 上臂常態 rz +1.15 係垂低，w=1 時拉到 -0.55 即抬起過肩；揮手用遊戲時鐘 sin，platform 包絡 hold 期間持續擺。
           const wavePhase = Math.sin(clock * 9);
-          pose(B.armRU, -0.3 * w, 0, 1.15 - 1.7 * w + wavePhase * 0.18 * w);
-          pose(B.armRL, -0.28 - 1.05 * w, 0, 0.06 + wavePhase * 0.35 * w);
+          pose(B.armRU, -0.3 * w, 1.25 * w, 1.15 - 1.7 * w);
+          pose(B.armRL, -0.28 - 1.15 * w + wavePhase * 0.35 * w, 0, 0.06);
           pose(B.head, Math.abs(Math.sin(t * Math.PI * 2)) * 0.38 * w + 0.06, 0, 0);
         } else { setExpr(["happy", "joy", "fun"], 0); window.__aenoEmoteW = 0; window.__aenoEmoteT = -1; emoteUntil = -1; }
       }
