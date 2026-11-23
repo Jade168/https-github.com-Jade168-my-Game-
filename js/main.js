@@ -215,6 +215,7 @@ function animate() {
   updatePetFollow(dt, t);
   updateCameraFollow(dt);
   if (world && world.stars) world.stars.rotation.y = t * 0.012;
+  if (world && world.clouds) world.clouds.rotation.y = t * 0.02;
   controls.update();
   renderer.render(scene, camera);
 }

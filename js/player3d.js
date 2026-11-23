@@ -20,7 +20,24 @@ export async function createPlayer() {
   const s = TARGET_HEIGHT / h;
   model.scale.setScalar(s);
   model.position.y = -box.min.y * s;
-  model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  // 動漫化上色：將示範模型嘅寫實材質換成卡通漸層材質＋動漫配色（同成個世界統一風格）
+  const steps = new Uint8Array([90, 170, 245]);
+  const grad = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
+  grad.minFilter = THREE.NearestFilter;
+  grad.magFilter = THREE.NearestFilter;
+  grad.generateMipmaps = false;
+  grad.needsUpdate = true;
+  const toonFor = name => new THREE.MeshToonMaterial({
+    color: new THREE.Color(/joint/i.test(name || "") ? 0x51486e : 0xe9e4f8),
+    gradientMap: grad
+  });
+  model.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.frustumCulled = false;
+      o.material = Array.isArray(o.material) ? o.material.map(m => toonFor(m.name)) : toonFor(o.material.name);
+    }
+  });
 
   const root = new THREE.Group();
   root.add(model);
