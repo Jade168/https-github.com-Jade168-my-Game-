@@ -130,6 +130,9 @@ function switchPlanet(planet) {
 
 // ---------- 操控：鍵盤 + 虛擬搖桿 ----------
 const keys = {};
+// 驗收鉤子 ?autowalk=1：自動向前行，畀雲端瀏覽器驗收行走動畫用
+// （瀏覽器工具做唔到長按 W）；正常開 game 唔帶參數就完全唔受影響。
+const AUTO_WALK = new URLSearchParams(location.search).has("autowalk");
 window.addEventListener("keydown", e => {
   if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
   keys[e.code] = true;
@@ -163,6 +166,7 @@ function initJoystick() {
 
 function inputVector() {
   let f = 0, r = 0;
+  if (AUTO_WALK) f += 1; // 驗收鉤子：自動向前行
   if (keys["KeyW"] || keys["ArrowUp"]) f += 1;
   if (keys["KeyS"] || keys["ArrowDown"]) f -= 1;
   if (keys["KeyD"] || keys["ArrowRight"]) r += 1;
