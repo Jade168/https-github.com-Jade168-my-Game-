@@ -8,7 +8,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
-import { toonFromStandard } from "./toon.js"; // 第 2 步：Fox GLB 材質轉用共用 3 段 ramp（貼圖保留）
+// 註：狐狸唔用 toon.js（第 3 輪修復）——第 2 步（v21）曾將 Fox GLB 轉做 MeshToonMaterial，
+// 結果成隻變全黑剪影。破案：Fox.glb 嘅 primitive 根本冇 NORMAL 屬性
+// （得 JOINTS_0／POSITION／TEXCOORD_0／WEIGHTS_0），MeshStandardMaterial 容忍到
+// （半球光照住橙毛貼圖），MeshToonMaterial 嘅 ramp 查表就塌咗變黑。
+// 所以狐狸暫時豁免統一 ramp，用返 v20 親眼驗過嘅 MeshStandardMaterial 亮橙樣；
+// 第 4 步換寵物模型嗰陣再試安全做法（例如先 computeVertexNormals 補法線再轉 toon）。
 
 // 同一模型只下載＋解析一次（每次換星球/重入都會再叫 placePet，舊版每次重新 fetch，
 // 令程式動物頂住嘅時間拉長，間中睇落似「真模型時得時唔得」）；
@@ -41,12 +46,11 @@ export async function createPetModel(assistant) {
   const gltf = await loadPetGltf(spec.url);
   const model = cloneSkinned(gltf.scene);
   // 每隻實例用自己嘅材質（clone 預設共享材質，狼 tint 會漏去狐狸），
-  // 同時由 MeshStandardMaterial 轉做 MeshToonMaterial（共用 ramp，貼圖保留），
-  // 等真狐狸同世界用同一套光暗反應；載入失敗就根本唔行呢度，程式動物後備不變。
+  // 材質保持原裝 MeshStandardMaterial（見檔頭註：Fox 無 NORMAL，轉 toon 會全黑）。
+  // 載入失敗就根本唔行呢度，程式動物後備不變。
   model.traverse(o => {
     if (o.isMesh && o.material) {
-      const conv = m => toonFromStandard(m.clone());
-      o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
+      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
     }
   });
 
