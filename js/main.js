@@ -1,7 +1,7 @@
 // js/main.js — 進入點：Three.js 場景、相機、玩家公仔、寵物跟班、操控、動畫迴圈
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { buildWorld, rebuildIsland, PALETTE } from "./world3d.js";
+import { buildWorld, rebuildIsland, PALETTE, SUN_DIR } from "./world3d.js";
 import { createCharacter, updateCharacter } from "./characters3d.js";
 import { createPlayer } from "./player3d.js";
 import { createPetModel } from "./pet3d.js";
@@ -11,7 +11,7 @@ import { initUI, showGame, hideLoading, refreshStats, refreshAssistant, renderPl
 import { handlers, startTicking } from "./game.js";
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xbfdcf3, 90, 260); // 霧色＝地平線色（第 1 步：唔再用深藍夜霧；buildWorld 後再按星球同步）
+scene.fog = new THREE.Fog(0xbfdcf3, 35, 130); // 第 5 輪新第 1 步：細島用線性霧夾住島直徑（島半徑 26，遠邊先開始溶；遠景樹影環 66–94 單位溶入霧）；霧色＝地平線色（buildWorld 後再按星球同步）
 
 const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1200);
 camera.position.set(3.6, 3.4, 6.2); // 第 1 步：預設拉近（有效距離約 7.4，之前約 11.9，公仔大返約 1.6 倍）
@@ -23,7 +23,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15; // 第 1 步：日頭光亮返啲
+renderer.toneMappingExposure = 0.68; // 第 5 輪新第 1 步：Forest Stroll 黃金時刻數值（之前 1.15 係正午白光）
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -53,7 +53,7 @@ if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => dollyBy(1.33));
 // 光源（第 1 步動漫色板：暖太陽＋粉藍天光／粉紅地光，陰影帶色）
 scene.add(new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, PALETTE.hemiIntensity));
 const key = new THREE.DirectionalLight(PALETTE.sun, PALETTE.sunIntensity);
-key.position.set(12, 20, 10);
+key.position.set(SUN_DIR.x * 40, SUN_DIR.y * 40, SUN_DIR.z * 40); // 第 5 輪新第 1 步：暖斜陽 16° 側光（+X 方向），長影先令山丘／樹冠讀得出明暗面
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 key.shadow.camera.left = -30;

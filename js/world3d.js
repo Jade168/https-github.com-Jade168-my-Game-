@@ -13,24 +13,44 @@ void main() {
 const SKY_FRAG = `
 uniform vec3 topColor;
 uniform vec3 bottomColor;
+uniform vec3 sunDir;
+uniform vec3 sunColor;
+uniform vec3 horizonWarm;
 uniform float offset;
 varying vec3 vPos;
 void main() {
   float h = normalize(vPos + vec3(0.0, offset, 0.0)).y;
-  gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), 0.6), 0.0)), 1.0);
+  vec3 col = mix(bottomColor, topColor, max(pow(max(h, 0.0), 0.6), 0.0));
+  vec3 dir = normalize(vPos);
+  float sunAmt = max(dot(dir, sunDir), 0.0);
+  // 地平線附近、太陽嗰邊加暖色帶
+  float band = (1.0 - smoothstep(0.0, 0.35, h)) * smoothstep(0.2, 0.9, sunAmt);
+  col = mix(col, horizonWarm, band * 0.55);
+  // 柔和太陽光暈——唔要硬圓盤
+  col += sunColor * (pow(sunAmt, 24.0) * 0.9 + pow(sunAmt, 6.0) * 0.22);
+  gl_FragColor = vec4(col, 1.0);
 }`;
 
 function hex(c) { return new THREE.Color(c); }
 
-// 第 1 步鎖死嘅動漫色板＋燈光系統（報告 §5#1）：暖太陽＋粉藍天光／粉紅地光——陰影帶色，唔用黑灰
+// 第 5 輪新第 1 步：暖斜陽——太陽 16° 側光（+X 方向，唔係頭頂，唔係鏡頭後面），
+// 暖色 #fff3df 強度 4；半球光天空 #bfd8ff／地面暖啡 #6b5a45；陰影繼續有色。
+// 數字係已發表嘅起始值（Just-a-Simple-Tree celShade／Forest Stroll 黃金時刻），唔係對住目標圖量出嚟嘅。
+export const SUN_ELEVATION = 16; // 度
+export const SUN_DIR = new THREE.Vector3(
+  Math.cos(THREE.MathUtils.degToRad(SUN_ELEVATION)),
+  Math.sin(THREE.MathUtils.degToRad(SUN_ELEVATION)),
+  0
+).normalize();
 export const PALETTE = {
-  sun: 0xffdf9e, sunIntensity: 2.0,
-  hemiSky: 0xbcd8ff, hemiGround: 0xffd9c8, hemiIntensity: 0.9,
+  sun: 0xfff3df, sunIntensity: 4.0,
+  hemiSky: 0xbfd8ff, hemiGround: 0x6b5a45, hemiIntensity: 1.0,
   rim: 0x9fd4ff, rimIntensity: 0.7
 };
-// 地平線色：由星球天空色向白混 55%——天空底部同霧都用佢，遠景融入天空
+// 地平線色：由星球天空色向暖奶油 #ffe7bd 混 55%——天空底部同霧都用佢，遠景融入天空；
+// 暖斜陽下地平線係暖色，唔係冷白（第 5 輪新第 1 步）
 export function planetHorizon(planet) {
-  return hex(planet.sky).lerp(new THREE.Color(0xffffff), 0.55);
+  return hex(planet.sky).lerp(new THREE.Color(0xffe7bd), 0.55);
 }
 
 const OUTLINE = 0x2a2440;
@@ -54,8 +74,11 @@ function ball(r, mat, seg = 14) {
 function makeSky(top, bottom) {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
-      topColor: { value: hex(top) },
+      topColor: { value: hex(top).multiplyScalar(0.82) }, // 天頂加深少少，漸變層次出嚟（第 5 輪）
       bottomColor: { value: hex(bottom) },
+      sunDir: { value: SUN_DIR },
+      sunColor: { value: hex(PALETTE.sun) },
+      horizonWarm: { value: hex(0xffe9c4) },
       offset: { value: 60 }
     },
     vertexShader: SKY_VERT,
@@ -64,6 +87,37 @@ function makeSky(top, bottom) {
     depthWrite: false
   });
   return new THREE.Mesh(new THREE.SphereGeometry(600, 32, 20), mat);
+}
+
+// 遠景樹影環：最平嘅深度提示——一圈霧中深色樹影，等地平線唔係一條硬線
+// （Forest Stroll 做法：錐體放 62–90 單位外，溶入霧；呢度 66–94，一個 InstancedMesh 一個 draw call）
+function makeTreeline() {
+  const geo = new THREE.ConeGeometry(1, 1, 6);
+  const mat = toon(0x39543f); // 深藍綠，霧會再將佢沖淡
+  const count = 64;
+  const mesh = new THREE.InstancedMesh(geo, mat, count);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+  const p = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  let seed = 1234567;
+  const rand = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + rand() * 0.1;
+    const r = 66 + rand() * 28;
+    const h = 7 + rand() * 9;
+    const w = 2.5 + rand() * 3.5;
+    p.set(Math.cos(a) * r, -4 + h / 2 + rand() * 2, Math.sin(a) * r);
+    q.setFromAxisAngle(up, rand() * Math.PI);
+    s.set(w, h, w);
+    m.compose(p, q, s);
+    mesh.setMatrixAt(i, m);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  return mesh;
 }
 
 function makeStars(count = 900) {
@@ -267,7 +321,7 @@ function decorateIsland(group, planet) {
   return decor;
 }
 
-// 建立整個場景世界；回傳 { group, sky, stars, clouds, decor, horizon }
+// 建立整個場景世界；回傳 { group, sky, stars, clouds, treeline, decor, horizon }
 export function buildWorld(planet) {
   const group = new THREE.Group();
   const horizon = planetHorizon(planet);
@@ -275,20 +329,21 @@ export function buildWorld(planet) {
   const stars = makeStars();
   stars.visible = false; // 第 1 步預設日頭光：星星隱藏（留返將來夜晚模式用）
   const clouds = makeClouds(planet.accent);
-  group.add(sky, stars, clouds);
+  const treeline = makeTreeline(); // 第 5 輪新第 1 步：遠景樹影環
+  group.add(sky, stars, clouds, treeline);
   const decor = decorateIsland(group, planet);
-  return { group, sky, stars, clouds, decor, horizon };
+  return { group, sky, stars, clouds, treeline, decor, horizon };
 }
 
-// 換星球時重建地表裝飾（天空／星空／雲朵保留，只換顏色主題）
+// 換星球時重建地表裝飾（天空／星空／雲朵／樹影環保留，只換顏色主題）
 export function rebuildIsland(world, planet) {
   if (world.decor) world.decor.parent.remove(world.decor);
   world.group.children
-    .filter(c => c !== world.sky && c !== world.stars && c !== world.clouds && c.userData.keep !== true)
+    .filter(c => c !== world.sky && c !== world.stars && c !== world.clouds && c !== world.treeline && c.userData.keep !== true)
     .forEach(c => world.group.remove(c));
   world.decor = decorateIsland(world.group, planet);
   world.horizon = planetHorizon(planet);
-  world.sky.material.uniforms.topColor.value = hex(planet.sky);
+  world.sky.material.uniforms.topColor.value = hex(planet.sky).multiplyScalar(0.82);
   world.sky.material.uniforms.bottomColor.value = world.horizon;
   return world.decor;
 }
