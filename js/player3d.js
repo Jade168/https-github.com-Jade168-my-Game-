@@ -8,6 +8,7 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { TOON_RAMP } from "./toon.js"; // 第 2 步：GLB 後備公仔同世界共用同一條 3 段 ramp
 
 const VRM_URL = "./assets/models/player.vrm";
 const GLB_URL = "./assets/models/player.glb";
@@ -217,15 +218,9 @@ async function createGlbPlayer() {
 
   const model = gltf.scene;
   normalizeHeight(model, 1.75);
-  const steps = new Uint8Array([90, 170, 245]);
-  const grad = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
-  grad.minFilter = THREE.NearestFilter;
-  grad.magFilter = THREE.NearestFilter;
-  grad.generateMipmaps = false;
-  grad.needsUpdate = true;
   const toonFor = name => new THREE.MeshToonMaterial({
     color: new THREE.Color(/joint/i.test(name || "") ? 0x51486e : 0xe9e4f8),
-    gradientMap: grad
+    gradientMap: TOON_RAMP
   });
   model.traverse(o => {
     if (o.isMesh) {

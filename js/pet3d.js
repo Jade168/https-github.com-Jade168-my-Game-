@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+import { toonFromStandard } from "./toon.js"; // 第 2 步：Fox GLB 材質轉用共用 3 段 ramp（貼圖保留）
 
 // 同一模型只下載＋解析一次（每次換星球/重入都會再叫 placePet，舊版每次重新 fetch，
 // 令程式動物頂住嘅時間拉長，間中睇落似「真模型時得時唔得」）；
@@ -39,10 +40,13 @@ export async function createPetModel(assistant) {
 
   const gltf = await loadPetGltf(spec.url);
   const model = cloneSkinned(gltf.scene);
-  // 每隻實例用自己嘅材質（clone 預設共享材質，狼 tint 會漏去狐狸）
+  // 每隻實例用自己嘅材質（clone 預設共享材質，狼 tint 會漏去狐狸），
+  // 同時由 MeshStandardMaterial 轉做 MeshToonMaterial（共用 ramp，貼圖保留），
+  // 等真狐狸同世界用同一套光暗反應；載入失敗就根本唔行呢度，程式動物後備不變。
   model.traverse(o => {
     if (o.isMesh && o.material) {
-      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+      const conv = m => toonFromStandard(m.clone());
+      o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
     }
   });
 

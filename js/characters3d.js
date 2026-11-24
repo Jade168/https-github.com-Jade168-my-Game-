@@ -3,24 +3,9 @@
 // 加黑色描邊 + 大眼 + 腮紅，做出動漫風立體角色。
 
 import * as THREE from "three";
-
-// 3 段式漸層貼圖 → MeshToonMaterial 的分層卡通上色
-function makeGradientMap() {
-  const steps = new Uint8Array([70, 150, 235]);
-  const tex = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
-  tex.needsUpdate = true;
-  return tex;
-}
-const GRADIENT = makeGradientMap();
+import { toonMaterial as toon } from "./toon.js"; // 第 2 步：同世界共用同一條 3 段 ramp（之前動物用自己一條 [70,150,235]）
 
 const OUTLINE_COLOR = 0x1b2130;
-
-function toon(color) {
-  return new THREE.MeshToonMaterial({ color: new THREE.Color(color), gradientMap: GRADIENT });
-}
 
 function outline(mesh, scale = 1.09) {
   const o = new THREE.Mesh(

@@ -1,5 +1,6 @@
 // js/world3d.js — 3D 世界：漸層天空、星空、動漫風浮空島（toon 上色小屋／櫻花樹／雲朵／花草／水晶）
 import * as THREE from "three";
+import { TOON_RAMP, toonMaterial as toon } from "./toon.js"; // 第 2 步：全場共用同一條 3 段 ramp
 
 const SKY_VERT = `
 varying vec3 vPos;
@@ -19,21 +20,6 @@ void main() {
 }`;
 
 function hex(c) { return new THREE.Color(c); }
-
-// 卡通漸層（同 characters3d 共用同一套 3 段色階，成個世界風格統一）
-function makeGradientMap() {
-  const steps = new Uint8Array([90, 170, 245]);
-  const tex = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
-  tex.needsUpdate = true;
-  return tex;
-}
-const GRADIENT = makeGradientMap();
-function toon(color, opts = {}) {
-  return new THREE.MeshToonMaterial({ color: hex(color), gradientMap: GRADIENT, ...opts });
-}
 
 // 第 1 步鎖死嘅動漫色板＋燈光系統（報告 §5#1）：暖太陽＋粉藍天光／粉紅地光——陰影帶色，唔用黑灰
 export const PALETTE = {
@@ -97,8 +83,8 @@ function makeStars(count = 900) {
 // 動漫雲：幾粒扁白球拼埋，浮喺島四周慢慢轉
 function makeClouds(accent) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: GRADIENT, transparent: true, opacity: 0.92 });
-  const tint = new THREE.MeshToonMaterial({ color: hex(accent), gradientMap: GRADIENT, transparent: true, opacity: 0.35 });
+  const mat = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: TOON_RAMP, transparent: true, opacity: 0.92 });
+  const tint = new THREE.MeshToonMaterial({ color: hex(accent), gradientMap: TOON_RAMP, transparent: true, opacity: 0.35 });
   for (let i = 0; i < 7; i++) {
     const cloud = new THREE.Group();
     const n = 3 + Math.floor(Math.random() * 3);
@@ -132,7 +118,7 @@ function decorateIsland(group, planet) {
   const pick = arr => arr[Math.floor(rand() * arr.length)];
 
   const grassMat = toon(planet.ground);
-  const grassLight = new THREE.MeshToonMaterial({ color: hex(planet.ground).lerp(new THREE.Color(0xffffff), 0.28), gradientMap: GRADIENT });
+  const grassLight = new THREE.MeshToonMaterial({ color: hex(planet.ground).lerp(new THREE.Color(0xffffff), 0.28), gradientMap: TOON_RAMP });
   const accentMat = toon(planet.accent);
   const rockMat = toon(0x8a7f95);
   const rockDark = toon(0x6b5f7a);
