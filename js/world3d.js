@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { TOON_RAMP, toonMaterial as toon } from "./toon.js"; // 第 2 步：全場共用同一條 3 段 ramp
 import { painted } from "./paint.js"; // 第 3 步：canvas 手繪／漸變貼圖
+import { createHeightField, buildTerrain } from "./terrain.js"; // 新第 2 步：起伏手繪地形
 
 const SKY_VERT = `
 varying vec3 vPos;
@@ -183,7 +184,6 @@ function decorateIsland(group, planet) {
   // 第 3 步：全部大件道具改用 canvas 手繪貼圖（paint.js 生成、按色快取）
   // 島身側面＝垂落草痕、島頂圓盤＝手繪色斑＋花田碎點＋畫入去嘅陰影面＋邊緣 AO
   const grassMat = painted(planet.ground, "groundSide");
-  const grassLight = painted(hex(planet.ground).lerp(new THREE.Color(0xffffff), 0.28), "ground");
   const accentMat = toon(planet.accent);
   const rockMat = painted(0x8a7f95, "rock");
   const rockDark = painted(0x6b5f7a, "rock");
@@ -197,16 +197,33 @@ function decorateIsland(group, planet) {
   const doorMat = toon(0x7a4a2b);
   const crystalMat = toon(planet.accent, { emissive: hex(planet.accent), emissiveIntensity: 0.55 });
 
-  // 浮島本體：草地圓盤 + 淺色草面 + 分層岩錐（動漫浮島感）
+  // 新第 2 步：先定屋位（同舊 code 一樣用 rng 順序計，種子不變同星球佈置固定），
+  // 再用屋位＋出生點做 flatten pad 建立共用 heightAt，最後起地形網格。
+  // 一個高度來源：地形、屋、樹、花、水晶、角色企位全部跟 heightAt。
+  const houseSpots = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + rng(-0.35, 0.35);
+    const r = rng(10.5, 15.5);
+    houseSpots.push({
+      x: Math.cos(a) * r, z: Math.sin(a) * r,
+      s: rng(0.85, 1.3), rotY: -a + Math.PI / 2 + rng(-0.3, 0.3)
+    });
+  }
+  // 順序重要：出生點 pad 先、屋 pad 後——重疊區由後者贏，屋地台保證完全平
+  // （反過來會令屋邊緣浮起約 0.1；smoke test 捉到）。出生點中心本身唔受屋影響。
+  const heightAt = createHeightField(planet, [
+    { x: 0, z: 7, r: 4 }, // 出生點地台（公仔 spawn (0,7)）
+    ...houseSpots.map(h => ({ x: h.x, z: h.z, r: 3.2 }))
+  ]);
+  const terrain = buildTerrain(planet, heightAt);
+  group.add(terrain.mesh);
+
+  // 浮島本體：草地圓柱側面（頂蓋由地形網格取代——地形最低 0.05，頂蓋唔會穿出嚟）
+  // ＋分層岩錐（動漫浮島感）
   const island = new THREE.Mesh(new THREE.CylinderGeometry(26, 23, 3, 48), grassMat);
   island.position.y = -1.5;
   island.receiveShadow = true;
   group.add(island);
-  const topDisc = new THREE.Mesh(new THREE.CircleGeometry(25.6, 48), grassLight);
-  topDisc.rotation.x = -Math.PI / 2;
-  topDisc.position.y = 0.02;
-  topDisc.receiveShadow = true;
-  group.add(topDisc);
   const under1 = new THREE.Mesh(new THREE.ConeGeometry(23, 13, 48, 1, true), rockMat);
   under1.position.y = -9.5; under1.rotation.x = Math.PI;
   group.add(under1);
@@ -247,16 +264,12 @@ function decorateIsland(group, planet) {
     const chimney = box(0.45, 1.0, 0.45, rockMat);
     chimney.position.set(0.9, 3.4, -0.5);
     h.add(chimney);
-    h.position.set(x, 0, z);
+    h.position.set(x, heightAt(x, z), z); // 新第 2 步：屋企喺地台高度（pad 內完全平）
     h.rotation.y = rotY;
     h.scale.setScalar(s);
     decor.add(h);
   }
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + rng(-0.35, 0.35);
-    const r = rng(10.5, 15.5);
-    house(Math.cos(a) * r, Math.sin(a) * r, rng(0.85, 1.3), -a + Math.PI / 2 + rng(-0.3, 0.3));
-  }
+  for (const hs of houseSpots) house(hs.x, hs.z, hs.s, hs.rotY);
 
   // 樹：綠樹（多球樹冠）＋櫻花樹（粉紅）＋松樹（錐層）
   function tree(x, z, kindT) {
@@ -281,7 +294,7 @@ function decorateIsland(group, planet) {
         t.add(b);
       }
     }
-    t.position.set(x, 0, z);
+    t.position.set(x, heightAt(x, z), z); // 新第 2 步：跟地形，唔浮空唔沉底
     t.scale.setScalar(rng(0.85, 1.35));
     decor.add(t);
   }
@@ -297,7 +310,7 @@ function decorateIsland(group, planet) {
     const head = ball(0.13, pick(flowerMats), 8);
     head.position.y = 0.55;
     f.add(head);
-    f.position.set(x, 0, z);
+    f.position.set(x, heightAt(x, z), z); // 新第 2 步：跟地形
     decor.add(f);
   }
 
@@ -323,16 +336,18 @@ function decorateIsland(group, planet) {
   for (let i = 0; i < 7; i++) {
     const a = rand() * Math.PI * 2;
     const r = rng(6, 21);
+    const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
     const c = new THREE.Mesh(new THREE.ConeGeometry(rng(0.3, 0.5), rng(1.1, 2.2), 6), crystalMat);
-    c.position.set(Math.cos(a) * r, rng(0.5, 0.9), Math.sin(a) * r);
+    c.position.set(cx, heightAt(cx, cz) + rng(0.5, 0.9), cz); // 新第 2 步：跟地形
     c.rotation.z = rng(-0.15, 0.15);
     c.castShadow = true;
     decor.add(c);
   }
-  return decor;
+  return { decor, heightAt };
 }
 
-// 建立整個場景世界；回傳 { group, sky, stars, clouds, treeline, decor, horizon }
+// 建立整個場景世界；回傳 { group, sky, stars, clouds, treeline, decor, horizon, heightAt }
+// heightAt 係共用地形高度函數（新第 2 步）：main.js 角色／寵物企位都用佢。
 export function buildWorld(planet) {
   const group = new THREE.Group();
   const horizon = planetHorizon(planet);
@@ -342,17 +357,20 @@ export function buildWorld(planet) {
   const clouds = makeClouds(planet.accent);
   const treeline = makeTreeline(); // 第 5 輪新第 1 步：遠景樹影環
   group.add(sky, stars, clouds, treeline);
-  const decor = decorateIsland(group, planet);
-  return { group, sky, stars, clouds, treeline, decor, horizon };
+  const { decor, heightAt } = decorateIsland(group, planet);
+  return { group, sky, stars, clouds, treeline, decor, horizon, heightAt };
 }
 
-// 換星球時重建地表裝飾（天空／星空／雲朵／樹影環保留，只換顏色主題）
+// 換星球時重建地表裝飾（天空／星空／雲朵／樹影環保留，只換顏色主題；
+// 地形連 heightAt 一齊重建——唔同星球唔同種子）
 export function rebuildIsland(world, planet) {
   if (world.decor) world.decor.parent.remove(world.decor);
   world.group.children
     .filter(c => c !== world.sky && c !== world.stars && c !== world.clouds && c !== world.treeline && c.userData.keep !== true)
     .forEach(c => world.group.remove(c));
-  world.decor = decorateIsland(world.group, planet);
+  const { decor, heightAt } = decorateIsland(world.group, planet);
+  world.decor = decor;
+  world.heightAt = heightAt;
   world.horizon = planetHorizon(planet);
   world.sky.material.uniforms.topColor.value = hex(planet.sky).multiplyScalar(0.82);
   world.sky.material.uniforms.bottomColor.value = world.horizon;

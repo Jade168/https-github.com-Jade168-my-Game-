@@ -2,13 +2,13 @@
 // 策略（v7 起修正）：程式碼/頁面用 network-first，永遠攞最新版（有網就唔會食舊版）；
 // 大模型檔（.glb/.vrm）同圖片先用 cache-first（大檔唔使次次重下載）。
 // 舊版 cache-first 曾經令玩家長期停留喺舊版本（公仔/掣/動物更新睇唔到），所以改咗。
-const CACHE = "aeno-v3-25";
+const CACHE = "aeno-v3-26";
 const ASSETS = [
   "./", "./index.html", "./style.css",
   "./manifest.json", "./planets.json",
   "./js/main.js", "./js/data.js", "./js/state.js",
   "./js/ui.js", "./js/game.js", "./js/world3d.js", "./js/characters3d.js",
-  "./js/player3d.js", "./assets/models/player.glb", "./assets/models/player.vrm", "./assets/models/fox.glb", "./js/pet3d.js", "./js/toon.js", "./js/paint.js"
+  "./js/player3d.js", "./assets/models/player.glb", "./assets/models/player.vrm", "./assets/models/fox.glb", "./js/pet3d.js", "./js/toon.js", "./js/paint.js", "./js/terrain.js"
 ];
 const BIG_FILE = /\.(glb|vrm|png|jpe?g|webp|mp3|ogg|wav)(\?|$)/i;
 

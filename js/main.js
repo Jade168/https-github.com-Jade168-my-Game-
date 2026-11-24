@@ -105,8 +105,10 @@ function placePet() {
   petKind = assistant.kind;
   pet.userData.baseY = 0;
   // 有玩家公仔就企喺公仔側邊做跟班；冇就企中間做主角
-  if (avatar && avatar !== pet) pet.position.set(avatar.position.x + 1.6, 0, avatar.position.z + 0.8);
-  else pet.position.set(0, 0, 2.5);
+  // 新第 2 步：企位高度跟地形 heightAt，唔係 y=0
+  const gy = (x, z) => (world && world.heightAt ? world.heightAt(x, z) : 0);
+  if (avatar && avatar !== pet) pet.position.set(avatar.position.x + 1.6, gy(avatar.position.x + 1.6, avatar.position.z + 0.8), avatar.position.z + 0.8);
+  else pet.position.set(0, gy(0, 2.5), 2.5);
   scene.add(pet);
   if (!playerCtl) avatar = pet;
   _petPrev.copy(pet.position);
@@ -228,6 +230,8 @@ function updateMovement(dt) {
       speed01 = speed / RUN_SPEED;
     }
   }
+  // 新第 2 步：跟地形上落（企定都跟——換星球重建地形嗰陣唔會浮空／沉底）
+  if (world && world.heightAt) avatar.position.y = world.heightAt(avatar.position.x, avatar.position.z);
   if (playerCtl && avatar === playerCtl.object) playerCtl.setLocomotion(speed01);
 }
 
@@ -242,6 +246,8 @@ function updatePetFollow(dt, t) {
   } else {
     updateCharacter(pet, t, dt);
   }
+  // 新第 2 步：寵物跟地形上落（程式動物／真模型都係）
+  if (world && world.heightAt) pet.position.y = world.heightAt(pet.position.x, pet.position.z);
   if (!playerCtl || avatar !== playerCtl.object) return; // 冇公仔時寵物自己係主角，唔使跟
   // 跟班錨點：公仔身後左側
   const h = playerCtl.object.rotation.y;
@@ -303,7 +309,7 @@ scene.add(world.group);
 // 玩家公仔：非同步載入 GLB，成功就用公仔做主角，失敗退回寵物主角（placePet 會處理）
 createPlayer().then(ctl => {
   playerCtl = ctl;
-  ctl.object.position.set(0, 0, 7);
+  ctl.object.position.set(0, world && world.heightAt ? world.heightAt(0, 7) : 0, 7); // 新第 2 步：出生點地台高度
   ctl.object.rotation.y = Math.PI; // 面向島中心
   scene.add(ctl.object);
   avatar = ctl.object;
