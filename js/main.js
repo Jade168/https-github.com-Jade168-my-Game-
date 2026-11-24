@@ -11,7 +11,7 @@ import { initUI, showGame, hideLoading, refreshStats, refreshAssistant, renderPl
 import { handlers, startTicking } from "./game.js";
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xbfdcf3, 35, 130); // 第 5 輪新第 1 步：細島用線性霧夾住島直徑（島半徑 26，遠邊先開始溶；遠景樹影環 66–94 單位溶入霧）；霧色＝地平線色（buildWorld 後再按星球同步）
+scene.fog = new THREE.Fog(0xffe3bb, 35, 130); // 第 5 輪新第 1 步：細島用線性霧夾住島直徑（島半徑 26，遠邊先開始溶；遠景樹影環 66–94 單位溶入霧）；霧色＝地平線色（buildWorld 後再按星球同步）。第 6 輪微調：初始霧色由冷藍 0xbfdcf3 改暖奶油 0xffe3bb，頭一幀都唔會冷。
 
 const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1200);
 camera.position.set(3.6, 3.4, 6.2); // 第 1 步：預設拉近（有效距離約 7.4，之前約 11.9，公仔大返約 1.6 倍）
@@ -23,7 +23,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.68; // 第 5 輪新第 1 步：Forest Stroll 黃金時刻數值（之前 1.15 係正午白光）
+renderer.toneMappingExposure = 0.72; // 第 5 輪新第 1 步：Forest Stroll 黃金時刻數值（之前 1.15 係正午白光）；第 6 輪微調：0.68→0.72 小幅提亮，暖色唔好焗到暗沉
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);

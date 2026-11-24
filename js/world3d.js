@@ -23,8 +23,9 @@ void main() {
   vec3 col = mix(bottomColor, topColor, max(pow(max(h, 0.0), 0.6), 0.0));
   vec3 dir = normalize(vPos);
   float sunAmt = max(dot(dir, sunDir), 0.0);
-  // 地平線附近、太陽嗰邊加暖色帶
-  float band = (1.0 - smoothstep(0.0, 0.35, h)) * smoothstep(0.2, 0.9, sunAmt);
+  // 地平線附近加暖色帶：太陽嗰邊最暖，對面地平線都有 0.30 底色，唔會得一邊暖
+  // （第 6 輪微調：v24 驗收話暖色只喺太陽嗰邊，對面地平線係冷灰）
+  float band = (1.0 - smoothstep(0.0, 0.35, h)) * (0.30 + 0.70 * smoothstep(0.2, 0.9, sunAmt));
   col = mix(col, horizonWarm, band * 0.55);
   // 柔和太陽光暈——唔要硬圓盤
   col += sunColor * (pow(sunAmt, 24.0) * 0.9 + pow(sunAmt, 6.0) * 0.22);
@@ -34,8 +35,13 @@ void main() {
 function hex(c) { return new THREE.Color(c); }
 
 // 第 5 輪新第 1 步：暖斜陽——太陽 16° 側光（+X 方向，唔係頭頂，唔係鏡頭後面），
-// 暖色 #fff3df 強度 4；半球光天空 #bfd8ff／地面暖啡 #6b5a45；陰影繼續有色。
+// 暖色 #fff3df 強度 4；陰影繼續有色。
 // 數字係已發表嘅起始值（Just-a-Simple-Tree celShade／Forest Stroll 黃金時刻），唔係對住目標圖量出嚟嘅。
+// 第 6 輪微調（v24 驗收：暖色只喺太陽嗰邊，陰面冷藍灰去飽和）：
+// 半球光天空色由冷藍 #bfd8ff 改暖奶油 #ffe3b8（照住全場向上嘅面，係陰面變冷嘅主因）、
+// 地面色由 #6b5a45 推暖到蜜糖啡 #8a6a45、強度 1.0→1.1；
+// rim 燈由冷藍 #9fd4ff 改暖色 #ffd9a8 做弱暖補光（由對面低角度補，強度 0.7→0.5，
+// 唔可以消滅長影同斜陽方向感）；地平線混暖奶油 0.55→0.72，霧同天空底同步暖埋。
 export const SUN_ELEVATION = 16; // 度
 export const SUN_DIR = new THREE.Vector3(
   Math.cos(THREE.MathUtils.degToRad(SUN_ELEVATION)),
@@ -44,13 +50,13 @@ export const SUN_DIR = new THREE.Vector3(
 ).normalize();
 export const PALETTE = {
   sun: 0xfff3df, sunIntensity: 4.0,
-  hemiSky: 0xbfd8ff, hemiGround: 0x6b5a45, hemiIntensity: 1.0,
-  rim: 0x9fd4ff, rimIntensity: 0.7
+  hemiSky: 0xffe3b8, hemiGround: 0x8a6a45, hemiIntensity: 1.1,
+  rim: 0xffd9a8, rimIntensity: 0.5
 };
-// 地平線色：由星球天空色向暖奶油 #ffe7bd 混 55%——天空底部同霧都用佢，遠景融入天空；
-// 暖斜陽下地平線係暖色，唔係冷白（第 5 輪新第 1 步）
+// 地平線色：由星球天空色向暖奶油 #ffe7bd 混 72%——天空底部同霧都用佢，遠景融入天空；
+// 暖斜陽下地平線係暖色，唔係冷白（第 5 輪新第 1 步；第 6 輪由 55% 推到 72%）
 export function planetHorizon(planet) {
-  return hex(planet.sky).lerp(new THREE.Color(0xffe7bd), 0.55);
+  return hex(planet.sky).lerp(new THREE.Color(0xffe7bd), 0.72);
 }
 
 const OUTLINE = 0x2a2440;
@@ -299,7 +305,12 @@ function decorateIsland(group, planet) {
     const a = rand() * Math.PI * 2;
     const r = rng(4.5, 21.5);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (Math.hypot(x, z) < 4.5) continue;
+    // 第 6 輪微調：出生點清樹——舊條件 < 4.5 根本唔會觸發（r 最細都 4.5），
+    // 大棵櫻花樹企喺出生點隔離，一入場就遮住大半畫面。改為出生點半徑 7 內唔種樹，
+    // 再加開場鏡頭地面位置 (3.6, 6.2) 半徑 5 內唔種樹（main.js 預設鏡頭），
+    // 一入場就睇到公仔同島，唔使即刻縮放。種子亂數不變，同星球佈置固定。
+    if (Math.hypot(x, z) < 7) continue;
+    if (Math.hypot(x - 3.6, z - 6.2) < 5) continue;
     const kindT = rand() < 0.3 ? "sakura" : (rand() < 0.35 ? "pine" : "leaf");
     tree(x, z, kindT);
   }

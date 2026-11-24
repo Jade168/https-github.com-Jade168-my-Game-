@@ -2,7 +2,7 @@
 // 策略（v7 起修正）：程式碼/頁面用 network-first，永遠攞最新版（有網就唔會食舊版）；
 // 大模型檔（.glb/.vrm）同圖片先用 cache-first（大檔唔使次次重下載）。
 // 舊版 cache-first 曾經令玩家長期停留喺舊版本（公仔/掣/動物更新睇唔到），所以改咗。
-const CACHE = "aeno-v3-24";
+const CACHE = "aeno-v3-25";
 const ASSETS = [
   "./", "./index.html", "./style.css",
   "./manifest.json", "./planets.json",
