@@ -1,6 +1,7 @@
 // js/world3d.js — 3D 世界：漸層天空、星空、動漫風浮空島（toon 上色小屋／櫻花樹／雲朵／花草／水晶）
 import * as THREE from "three";
 import { TOON_RAMP, toonMaterial as toon } from "./toon.js"; // 第 2 步：全場共用同一條 3 段 ramp
+import { painted } from "./paint.js"; // 第 3 步：canvas 手繪／漸變貼圖
 
 const SKY_VERT = `
 varying vec3 vPos;
@@ -83,7 +84,9 @@ function makeStars(count = 900) {
 // 動漫雲：幾粒扁白球拼埋，浮喺島四周慢慢轉
 function makeClouds(accent) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: TOON_RAMP, transparent: true, opacity: 0.92 });
+  // 第 3 步：雲都有手繪貼圖——白底＋底部藍灰陰影，唔再係死白球
+  const mat = painted(0xffffff, "cloud");
+  mat.transparent = true; mat.opacity = 0.92;
   const tint = new THREE.MeshToonMaterial({ color: hex(accent), gradientMap: TOON_RAMP, transparent: true, opacity: 0.35 });
   for (let i = 0; i < 7; i++) {
     const cloud = new THREE.Group();
@@ -117,17 +120,19 @@ function decorateIsland(group, planet) {
   const rng = (a, b) => a + rand() * (b - a);
   const pick = arr => arr[Math.floor(rand() * arr.length)];
 
-  const grassMat = toon(planet.ground);
-  const grassLight = new THREE.MeshToonMaterial({ color: hex(planet.ground).lerp(new THREE.Color(0xffffff), 0.28), gradientMap: TOON_RAMP });
+  // 第 3 步：全部大件道具改用 canvas 手繪貼圖（paint.js 生成、按色快取）
+  // 島身側面＝垂落草痕、島頂圓盤＝手繪色斑＋花田碎點＋畫入去嘅陰影面＋邊緣 AO
+  const grassMat = painted(planet.ground, "groundSide");
+  const grassLight = painted(hex(planet.ground).lerp(new THREE.Color(0xffffff), 0.28), "ground");
   const accentMat = toon(planet.accent);
-  const rockMat = toon(0x8a7f95);
-  const rockDark = toon(0x6b5f7a);
-  const wallMats = [toon(0xfff6e8), toon(0xffe9f2), toon(0xe8f4ff), toon(0xfff3d6)];
-  const roofMats = [toon(planet.accent), toon(0xef6a7a), toon(0x5aa9e6), toon(0xf2a65a)];
-  const trunkMat = toon(0x8a5a3b);
-  const leafMats = [toon(0x3fae5a), toon(0x57c46a), toon(0x2f9e4f)];
-  const sakuraMat = toon(0xffb7d5);
-  const sakuraMat2 = toon(0xff9ec7);
+  const rockMat = painted(0x8a7f95, "rock");
+  const rockDark = painted(0x6b5f7a, "rock");
+  const wallMats = [painted(0xfff6e8, "wall"), painted(0xffe9f2, "wall"), painted(0xe8f4ff, "wall"), painted(0xfff3d6, "wall")];
+  const roofMats = [painted(planet.accent, "roof"), painted(0xef6a7a, "roof"), painted(0x5aa9e6, "roof"), painted(0xf2a65a, "roof")];
+  const trunkMat = painted(0x8a5a3b, "trunk");
+  const leafMats = [painted(0x3fae5a, "leaf"), painted(0x57c46a, "leaf"), painted(0x2f9e4f, "leaf")];
+  const sakuraMat = painted(0xffb7d5, "sakura");
+  const sakuraMat2 = painted(0xff9ec7, "sakura");
   const winMat = new THREE.MeshBasicMaterial({ color: 0xffe9a3 });
   const doorMat = toon(0x7a4a2b);
   const crystalMat = toon(planet.accent, { emissive: hex(planet.accent), emissiveIntensity: 0.55 });
