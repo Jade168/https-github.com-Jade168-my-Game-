@@ -35,6 +35,17 @@ function toon(color, opts = {}) {
   return new THREE.MeshToonMaterial({ color: hex(color), gradientMap: GRADIENT, ...opts });
 }
 
+// 第 1 步鎖死嘅動漫色板＋燈光系統（報告 §5#1）：暖太陽＋粉藍天光／粉紅地光——陰影帶色，唔用黑灰
+export const PALETTE = {
+  sun: 0xffdf9e, sunIntensity: 2.0,
+  hemiSky: 0xbcd8ff, hemiGround: 0xffd9c8, hemiIntensity: 0.9,
+  rim: 0x9fd4ff, rimIntensity: 0.7
+};
+// 地平線色：由星球天空色向白混 55%——天空底部同霧都用佢，遠景融入天空
+export function planetHorizon(planet) {
+  return hex(planet.sky).lerp(new THREE.Color(0xffffff), 0.55);
+}
+
 const OUTLINE = 0x2a2440;
 function outlined(mesh, scale = 1.06) {
   const o = new THREE.Mesh(mesh.geometry, new THREE.MeshBasicMaterial({ color: OUTLINE, side: THREE.BackSide }));
@@ -265,15 +276,17 @@ function decorateIsland(group, planet) {
   return decor;
 }
 
-// 建立整個場景世界；回傳 { group, sky, stars, clouds, decor }
+// 建立整個場景世界；回傳 { group, sky, stars, clouds, decor, horizon }
 export function buildWorld(planet) {
   const group = new THREE.Group();
-  const sky = makeSky(planet.sky, "#0a0f22");
+  const horizon = planetHorizon(planet);
+  const sky = makeSky(planet.sky, "#" + horizon.getHexString());
   const stars = makeStars();
+  stars.visible = false; // 第 1 步預設日頭光：星星隱藏（留返將來夜晚模式用）
   const clouds = makeClouds(planet.accent);
   group.add(sky, stars, clouds);
   const decor = decorateIsland(group, planet);
-  return { group, sky, stars, clouds, decor };
+  return { group, sky, stars, clouds, decor, horizon };
 }
 
 // 換星球時重建地表裝飾（天空／星空／雲朵保留，只換顏色主題）
@@ -283,6 +296,8 @@ export function rebuildIsland(world, planet) {
     .filter(c => c !== world.sky && c !== world.stars && c !== world.clouds && c.userData.keep !== true)
     .forEach(c => world.group.remove(c));
   world.decor = decorateIsland(world.group, planet);
+  world.horizon = planetHorizon(planet);
   world.sky.material.uniforms.topColor.value = hex(planet.sky);
+  world.sky.material.uniforms.bottomColor.value = world.horizon;
   return world.decor;
 }

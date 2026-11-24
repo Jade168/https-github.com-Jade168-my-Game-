@@ -51,7 +51,7 @@ export function renderPlanets() {
     const locked = !state.unlocked.includes(p.id);
     const chip = document.createElement("button");
     chip.className = "planet-chip" + (p.id === state.planetId ? " active" : "") + (locked ? " locked" : "");
-    chip.innerHTML = `<span>${p.flag}</span>${locked ? "？？？" : p.name}`;
+    chip.innerHTML = `<span>${p.flag}</span>${locked ? "🔒 " + p.name : p.name}`; // 未解鎖顯示 🔒＋星球名（舊版「？？？」成排睇落似渲染甩漏）
     chip.title = locked ? "尚未解鎖" : `${p.name} · ${p.language}`;
     chip.addEventListener("click", () => {
       if (locked) { toast("文明等級不足，未解鎖呢個星球", "warn"); return; }

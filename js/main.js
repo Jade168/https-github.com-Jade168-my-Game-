@@ -1,7 +1,7 @@
 // js/main.js — 進入點：Three.js 場景、相機、玩家公仔、寵物跟班、操控、動畫迴圈
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { buildWorld, rebuildIsland } from "./world3d.js";
+import { buildWorld, rebuildIsland, PALETTE } from "./world3d.js";
 import { createCharacter, updateCharacter } from "./characters3d.js";
 import { createPlayer } from "./player3d.js";
 import { createPetModel } from "./pet3d.js";
@@ -11,19 +11,19 @@ import { initUI, showGame, hideLoading, refreshStats, refreshAssistant, renderPl
 import { handlers, startTicking } from "./game.js";
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x0a0f22, 90, 260);
+scene.fog = new THREE.Fog(0xbfdcf3, 90, 260); // 霧色＝地平線色（第 1 步：唔再用深藍夜霧；buildWorld 後再按星球同步）
 
 const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1200);
-camera.position.set(6.5, 4.6, 9.5);
+camera.position.set(3.6, 3.4, 6.2); // 第 1 步：預設拉近（有效距離約 7.4，之前約 11.9，公仔大返約 1.6 倍）
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // 第 1 步：手機直屏效能上限 1.5
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.15; // 第 1 步：日頭光亮返啲
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -50,9 +50,9 @@ const zoomOutBtn = document.getElementById("zoomOut");
 if (zoomInBtn) zoomInBtn.addEventListener("click", () => dollyBy(0.75));
 if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => dollyBy(1.33));
 
-// 光源
-scene.add(new THREE.HemisphereLight(0xffffff, 0x2a3550, 0.9));
-const key = new THREE.DirectionalLight(0xffffff, 2.0);
+// 光源（第 1 步動漫色板：暖太陽＋粉藍天光／粉紅地光，陰影帶色）
+scene.add(new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, PALETTE.hemiIntensity));
+const key = new THREE.DirectionalLight(PALETTE.sun, PALETTE.sunIntensity);
 key.position.set(12, 20, 10);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
@@ -63,7 +63,7 @@ key.shadow.camera.bottom = -30;
 key.shadow.camera.far = 90;
 key.shadow.bias = -0.0006;
 scene.add(key);
-const rim = new THREE.DirectionalLight(0x9fd4ff, 0.7);
+const rim = new THREE.DirectionalLight(PALETTE.rim, PALETTE.rimIntensity);
 rim.position.set(-14, 8, -10);
 scene.add(rim);
 
@@ -132,6 +132,7 @@ function placePet() {
 
 function switchPlanet(planet) {
   rebuildIsland(world, planet);
+  scene.fog.color.set(world.horizon); // 換星球同步霧色＝新地平線色
   placePet();
 }
 
@@ -296,6 +297,7 @@ window.addEventListener("resize", onResize);
 // 啟動
 const offlineGain = loadState();
 world = buildWorld(currentPlanet());
+scene.fog.color.set(world.horizon); // 霧色＝地平線色，遠景融入天空
 scene.add(world.group);
 
 // 玩家公仔：非同步載入 GLB，成功就用公仔做主角，失敗退回寵物主角（placePet 會處理）
