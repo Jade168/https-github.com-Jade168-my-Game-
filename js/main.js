@@ -315,7 +315,7 @@ function animate() {
     }
   }
   if (world && world.stars) world.stars.rotation.y = t * 0.012;
-  if (world && world.clouds) world.clouds.rotation.y = t * 0.02;
+  if (world && world.clouds && world.clouds.userData.update) world.clouds.userData.update(dt, t, camera); // 新第 3 步：積雲漂移＋billboard（舊成組旋轉已換走）
   controls.update();
   // 第 8 輪 v27：鏡頭唔可以攝入地形／跌穿地面——企喺鏡頭腳下地形之上 0.4（山丘最高約 2.5，鏡頭最低 0.6）
   if (world && world.heightAt) {

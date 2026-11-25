@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { TOON_RAMP, toonMaterial as toon } from "./toon.js"; // 第 2 步：全場共用同一條 3 段 ramp
 import { painted } from "./paint.js"; // 第 3 步：canvas 手繪／漸變貼圖
 import { createHeightField, buildTerrain } from "./terrain.js"; // 新第 2 步：起伏手繪地形
+import { makeClouds } from "./clouds.js"; // 新第 3 步：大朵積雲（billboard puffs，舊球形雲已換走）
 
 const SKY_VERT = `
 varying vec3 vPos;
@@ -142,32 +143,10 @@ function makeStars(count = 900) {
   return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: true, transparent: true, opacity: 0.85 }));
 }
 
-// 動漫雲：幾粒扁白球拼埋，浮喺島四周慢慢轉
-function makeClouds(accent) {
-  const g = new THREE.Group();
-  // 第 3 步：雲都有手繪貼圖——白底＋底部藍灰陰影，唔再係死白球
-  const mat = painted(0xffffff, "cloud");
-  mat.transparent = true; mat.opacity = 0.92;
-  const tint = new THREE.MeshToonMaterial({ color: hex(accent), gradientMap: TOON_RAMP, transparent: true, opacity: 0.35 });
-  for (let i = 0; i < 7; i++) {
-    const cloud = new THREE.Group();
-    const n = 3 + Math.floor(Math.random() * 3);
-    for (let j = 0; j < n; j++) {
-      const s = ball(1 + Math.random() * 1.3, j % 3 === 0 ? tint : mat, 12);
-      s.position.set(j * 1.5 - n * 0.7, Math.random() * 0.5, Math.random() * 0.8 - 0.4);
-      s.scale.y = 0.55;
-      s.castShadow = false;
-      cloud.add(s);
-    }
-    const a = (i / 7) * Math.PI * 2 + Math.random() * 0.5;
-    const r = 38 + Math.random() * 26;
-    cloud.position.set(Math.cos(a) * r, 13 + Math.random() * 12, Math.sin(a) * r);
-    const sc = 1.6 + Math.random() * 1.8;
-    cloud.scale.setScalar(sc);
-    g.add(cloud);
-  }
-  return g;
-}
+// 動漫雲：舊球形雲（幾粒扁白球拼埋＋v23 實色藍碟底）已由新第 3 步換走——
+// 大朵積雲喺 js/clouds.js（billboard puffs：canvas 成簇 radial-gradient 雲團貼圖，
+// 三色調暖奶油頂／飽和藍綠中／暖淡紫底，Lambert 暖太陽光，慢速漂移＋wrap）。
+// 呢度唔留舊 makeClouds，唔好加返。
 
 function decorateIsland(group, planet) {
   // 以星球 id 做種子：同一個星球每次入去佈置一樣，唔再隨機重掟
@@ -354,7 +333,7 @@ export function buildWorld(planet) {
   const sky = makeSky(planet.sky, "#" + horizon.getHexString());
   const stars = makeStars();
   stars.visible = false; // 第 1 步預設日頭光：星星隱藏（留返將來夜晚模式用）
-  const clouds = makeClouds(planet.accent);
+  const clouds = makeClouds(); // 新第 3 步：大朵積雲（js/clouds.js，billboard puffs）
   const treeline = makeTreeline(); // 第 5 輪新第 1 步：遠景樹影環
   group.add(sky, stars, clouds, treeline);
   const { decor, heightAt } = decorateIsland(group, planet);

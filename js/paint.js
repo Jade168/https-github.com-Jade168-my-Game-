@@ -193,24 +193,98 @@ function paintRock(base, rng) {
   ctx.globalAlpha = 1;
   return cv;
 }
-// 雲：白底＋底部藍灰陰影＋柔和灰藍色斑（動漫雲下面係有色嘅，唔係死白）
-function paintCloud(rng) {
-  const [cv, ctx] = mkCanvas();
-  const g = ctx.createLinearGradient(0, 0, 0, SIZE);
-  g.addColorStop(0, "#ffffff"); g.addColorStop(0.62, "#f4f8ff"); g.addColorStop(1, "#dbe7f5");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, SIZE, SIZE);
-  for (let i = 0; i < 6; i++) {
-    blob(ctx, rng() * SIZE, SIZE * (0.55 + rng() * 0.4), 26 + rng() * 40, "#b9cde8", 0.14 + rng() * 0.08);
+// 新第 3 步：積雲 puff 貼圖——透明底，成簇 radial-gradient blob 拼成花椰菜狀雲團
+// （唔係一舊軟身白 blob；v23 舊版係實色底＋藍灰碟底，成舊實色圓碟，今輪換走）
+// 三色調按高度分層：暖奶油頂（#fff6dc）／淡藍綠中（#a8d8cc，只做過渡）／暖淡紫底（#d5c6e8）；
+// 雲身主體係近白（#ffffff／#f6fbf8），唔係綠色——中層綠太多會成片薄荷色，似星雲多過似雲
+// 雲團輪廓由大細唔同嘅 blob 疊出嚟，底部一排大 blob 微扁，頂部細 blob 拱起。
+const CLOUD_W = 1024, CLOUD_H = 512; // 1024×512：plane 闊 26–52 單位，512 貼圖放大後 puff 邊緣太糊，睇落似星雲
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+// 一粒扁 blob：徑向漸變，中心實色、邊緣化開（水彩／手繪感）；
+// 核心硬啲（0→0.7 幾乎實色，0.88 先急跌），每粒 puff 先讀得出輪廓，唔會溶埋一舊糊
+function puffBlob(ctx, x, y, rx, ry, color, alpha) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, ry / rx);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  g.addColorStop(0, rgba(color, alpha));
+  g.addColorStop(0.7, rgba(color, alpha * 0.95));
+  g.addColorStop(0.88, rgba(color, alpha * 0.3));
+  g.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function paintCloudPuff(rng) {
+  const cv = document.createElement("canvas");
+  cv.width = CLOUD_W; cv.height = CLOUD_H;
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, CLOUD_W, CLOUD_H);
+  const px = f => f * CLOUD_W, py = f => f * CLOUD_H;
+  // 每排 puff 半徑要大過間距，雲身先係實心一團（之前半徑 ≈ 間距，puff 之間透天，成朵雲變一堆波點）
+  // 底部一排：大粒微扁、暖淡紫（雲底有色，唔係死白）
+  const bottom = ["#d5c6e8", "#cfbce2", "#ddd2ee"];
+  for (let i = 0; i < 10; i++) {
+    puffBlob(ctx, px(0.05 + i * 0.10 + (rng() - 0.5) * 0.02), py(0.77 + (rng() - 0.5) * 0.04),
+      px(0.065 + rng() * 0.025), py(0.15 + rng() * 0.04), bottom[i % 3], 0.9);
   }
-  blob(ctx, SIZE * 0.3, SIZE * 0.2, 90, "#ffffff", 0.5);
+  // 中層：淡藍綠過渡（細粒、少啲——只係雲身中間嘅冷色，唔好成片薄荷綠）
+  const mid = ["#a8d8cc", "#b5ded2", "#9ccfc2"];
+  for (let i = 0; i < 8; i++) {
+    puffBlob(ctx, px(0.07 + i * 0.12 + (rng() - 0.5) * 0.025), py(0.62 + (rng() - 0.5) * 0.05),
+      px(0.055 + rng() * 0.02), py(0.13 + rng() * 0.04), mid[i % 3], 0.9);
+  }
+  // 中上層：近白大粒，遮住大部份中層——雲身主體係白色，唔係綠色
+  for (let i = 0; i < 11; i++) {
+    puffBlob(ctx, px(0.04 + i * 0.09 + (rng() - 0.5) * 0.02), py(0.50 + (rng() - 0.5) * 0.06),
+      px(0.06 + rng() * 0.02), py(0.15 + rng() * 0.05), i % 2 ? "#f6fbf8" : "#ffffff", 0.95);
+  }
+  // 頂層：細粒拱起、暖奶油（太陽照住嘅雲頂）
+  const top = ["#fff6dc", "#ffefc4", "#fffaf0"];
+  for (let i = 0; i < 10; i++) {
+    puffBlob(ctx, px(0.07 + i * 0.09 + (rng() - 0.5) * 0.02), py(0.36 + (rng() - 0.5) * 0.05),
+      px(0.045 + rng() * 0.02), py(0.11 + rng() * 0.04), top[i % 3], 0.97);
+  }
+  // 頂部高光：幾粒細白 blob，雲頂再亮啲
+  for (let i = 0; i < 6; i++) {
+    puffBlob(ctx, px(0.10 + i * 0.16 + (rng() - 0.5) * 0.025), py(0.25 + (rng() - 0.5) * 0.04),
+      px(0.028 + rng() * 0.012), py(0.07 + rng() * 0.025), "#ffffff", 0.9);
+  }
+  // 谷底暗紋：puff 接縫處細粒淡紫灰，低 alpha，做出花椰菜坑紋（Sakuragaoka 做法：puff 之間嘅深色谷畫入顏色）
+  for (let i = 0; i < 10; i++) {
+    puffBlob(ctx, px(0.06 + rng() * 0.88), py(0.43 + rng() * 0.35),
+      px(0.012 + rng() * 0.01), py(0.03 + rng() * 0.025), "#b9a8cc", 0.10 + rng() * 0.08);
+  }
+  // 邊緣散 puff：輪廓唔規則，唔係一個長方形
+  puffBlob(ctx, px(0.028), py(0.66), px(0.023), py(0.06), "#d5c6e8", 0.85);
+  puffBlob(ctx, px(0.975), py(0.68), px(0.025), py(0.07), "#d5c6e8", 0.85);
+  puffBlob(ctx, px(0.88), py(0.42), px(0.021), py(0.06), "#ffefc4", 0.9);
   return cv;
+}
+
+let _cloudPuffTex = null;
+// 新第 3 步：積雲 puff 貼圖（單例，一張貼圖全場雲共用；Lambert 材質用，唔經 painted() 嘅 toon 材質）
+export function cloudPuffTexture() {
+  if (_cloudPuffTex) return _cloudPuffTex;
+  const rng = rngFrom("cloudPuff:v1");
+  const tex = new THREE.CanvasTexture(paintCloudPuff(rng));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  _cloudPuffTex = tex;
+  return tex;
 }
 
 const PAINTERS = {
   ground: paintGround, groundSide: paintGroundSide, leaf: paintBlotch,
   sakura: paintSakura, wall: paintBlotch, roof: paintRoof,
-  trunk: paintTrunk, rock: paintRock, cloud: paintCloud
+  trunk: paintTrunk, rock: paintRock
 };
+// （舊 "cloud" 畫法已刪：v23 實色底＋藍灰碟底雲由新第 3 步嘅 cloudPuffTexture() 取代，
+// 積雲貼圖唔經 painted() 嘅 toon 材質，改用 MeshLambertMaterial。）
 
 // 主入口：攞一件手繪貼圖材質。color 係底色（貼圖畫滿實色，材質色設白，
 // 唔用 color×map 雙重上色）；kind 係畫法；seedKey 令同色同畫法畫出嚟一樣。
@@ -222,7 +296,7 @@ export function painted(color, kind) {
   if (hit) return hit;
   const painter = PAINTERS[kind] || paintBlotch;
   const rng = rngFrom(key);
-  const cv = kind === "cloud" ? painter(rng) : painter(hex, rng);
+  const cv = painter(hex, rng);
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace; // albedo 貼圖：sRGB（main.js renderer 係 SRGB＋ACES）
   tex.anisotropy = 4;
