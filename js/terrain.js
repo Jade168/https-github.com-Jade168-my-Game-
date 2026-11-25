@@ -77,6 +77,8 @@ export function createHeightField(planet, spots) {
   }
   const pads = spots.map(s => ({ x: s.x, z: s.z, r: s.r, h: rawWithFalloff(s.x, s.z) }));
   function heightAt(x, z) {
+    // 第 8 輪 v27：非有限輸入唔可以返 NaN（NaN 傳入 avatar.y 會毒死成個鏡頭鏈）——回退島緣高度
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return BASE_Y;
     let h = rawWithFalloff(x, z);
     for (const p of pads) {
       const d = Math.hypot(x - p.x, z - p.z);

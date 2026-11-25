@@ -138,6 +138,14 @@ function switchPlanet(planet) {
   placePet();
 }
 
+function clampToIsland(obj, r = ISLAND_R) {
+  // 第 8 輪 v27：島邊界每幀強制執行（唔只係郁緊嗰陣）——任何路徑郁到位置
+  // （搖桿殘留、AUTO_WALK、換星球、寵物跟隨）都唔可以離開島
+  const d = Math.hypot(obj.position.x, obj.position.z);
+  if (d > r) { obj.position.x *= r / d; obj.position.z *= r / d; }
+  return obj;
+}
+
 // ---------- 操控：鍵盤 + 虛擬搖桿 ----------
 const keys = {};
 // 驗收鉤子 ?autowalk=1：自動向前行，畀雲端瀏覽器驗收行走動畫用
@@ -222,15 +230,13 @@ function updateMovement(dt) {
       _dir.normalize();
       const speed = (running ? RUN_SPEED : WALK_SPEED) * mag;
       avatar.position.addScaledVector(_dir, speed * dt);
-      // 島邊界
-      const d = Math.hypot(avatar.position.x, avatar.position.z);
-      if (d > ISLAND_R) { avatar.position.x *= ISLAND_R / d; avatar.position.z *= ISLAND_R / d; }
       const targetRot = headingFor(avatar, _dir.x, _dir.z);
       avatar.rotation.y = angleLerp(avatar.rotation.y, targetRot, Math.min(1, dt * 12));
       speed01 = speed / RUN_SPEED;
     }
   }
-  // 新第 2 步：跟地形上落（企定都跟——換星球重建地形嗰陣唔會浮空／沉底）
+  // 第 8 輪 v27：每幀 clamp（唔只係郁緊嗰陣）＋跟地形上落
+  clampToIsland(avatar);
   if (world && world.heightAt) avatar.position.y = world.heightAt(avatar.position.x, avatar.position.z);
   if (playerCtl && avatar === playerCtl.object) playerCtl.setLocomotion(speed01);
 }
@@ -263,6 +269,9 @@ function updatePetFollow(dt, t) {
     const targetRot = headingFor(pet, dir.x, dir.z);
     pet.rotation.y = angleLerp(pet.rotation.y, targetRot, Math.min(1, dt * 10));
   }
+  // 第 8 輪 v27：寵物跟隨都唔可以出島（跟班錨點喺玩家身後，玩家企邊嗰陣錨點可以向外）
+  clampToIsland(pet);
+  if (world && world.heightAt) pet.position.y = world.heightAt(pet.position.x, pet.position.z);
 }
 
 function updateCameraFollow(dt) {
@@ -272,6 +281,11 @@ function updateCameraFollow(dt) {
   controls.target.lerp(_desiredTarget, Math.min(1, dt * 6));
   _targetDelta.subVectors(controls.target, _prevTarget);
   camera.position.add(_targetDelta);
+  // 第 8 輪 v27：鏡頭目標都唔可以離開島——拖鏡頭 pan／雙指平移之前完全冇上限，
+  // 目標拖得遠，鏡頭就跟住去虛空（天空球半徑 600 外乜都睇唔到）。y 夾住正常範圍。
+  const td = Math.hypot(controls.target.x, controls.target.z);
+  if (td > ISLAND_R + 3) { controls.target.x *= (ISLAND_R + 3) / td; controls.target.z *= (ISLAND_R + 3) / td; }
+  controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0.5, 6);
   if (FACE_CAM) {
     // 驗收鉤子：鏡頭企喺主角正面 4.2 米外、1.9 米高，主角行過嚟都保持正面
     const fwd = new THREE.Vector3(Math.sin(avatar.rotation.y), 0, Math.cos(avatar.rotation.y));
@@ -287,13 +301,35 @@ function animate() {
   if (playerCtl) playerCtl.update(dt);
   updatePetFollow(dt, t);
   updateCameraFollow(dt);
+  // 第 8 輪 v27：NaN 看門狗——avatar／鏡頭目標／鏡頭任何一個數值爛咗（NaN／Infinity），
+  // 即刻重置返出生點＋預設鏡頭，唔好等佢永久傳播變黑畫面（要 reload 先救得返）
+  if (avatar) {
+    const ap = avatar.position, cp = camera.position, tp = controls.target;
+    if (!Number.isFinite(ap.x) || !Number.isFinite(ap.y) || !Number.isFinite(ap.z)
+      || !Number.isFinite(cp.x) || !Number.isFinite(cp.y) || !Number.isFinite(cp.z)
+      || !Number.isFinite(tp.x) || !Number.isFinite(tp.y) || !Number.isFinite(tp.z)) {
+      console.warn("[aeno] 位置數值異常，已重置返出生點");
+      avatar.position.set(0, world && world.heightAt ? world.heightAt(0, 7) : 0, 7);
+      controls.target.set(0, 1.4, 0);
+      camera.position.set(3.6, 3.4, 6.2);
+    }
+  }
   if (world && world.stars) world.stars.rotation.y = t * 0.012;
   if (world && world.clouds) world.clouds.rotation.y = t * 0.02;
   controls.update();
+  // 第 8 輪 v27：鏡頭唔可以攝入地形／跌穿地面——企喺鏡頭腳下地形之上 0.4（山丘最高約 2.5，鏡頭最低 0.6）
+  if (world && world.heightAt) {
+    const g = world.heightAt(camera.position.x, camera.position.z);
+    if (camera.position.y < g + 0.4) camera.position.y = g + 0.4;
+  }
+  if (camera.position.y < 0.6) camera.position.y = 0.6;
   renderer.render(scene, camera);
 }
 
 function onResize() {
+  // 第 8 輪 v27：視窗闊／高係 0 嗰陣唔好 resize——aspect 會變 Infinity／NaN，
+  // projection matrix 爛晒，成個場景被 frustum cull 變黑畫面，行返去都救唔返
+  if (!window.innerWidth || !window.innerHeight) return;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -338,6 +374,7 @@ createPlayer().then(ctl => {
 placePet();
 animate();
 initJoystick();
+
 
 initUI({
   onLogin: handlers.onLogin,
